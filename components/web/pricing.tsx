@@ -92,7 +92,7 @@ export function Pricing() {
             </Button>
 
             <p className="text-xs text-muted-foreground mt-4">
-              Ingen kreditkort krävs. Avsluta när du vill.
+              Ingen bindningstid. Avsluta när du vill.
             </p>
           </div>
 
