@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, workspaceProcedure } from "../init";
-import { employees } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { employees, payrollEntries, payrollRuns } from "@/lib/db/schema";
+import { eq, and, like, sql } from "drizzle-orm";
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
@@ -207,5 +207,81 @@ export const employeesRouter = router({
         ...updated,
         personalNumber: decrypt(updated.personalNumber),
       };
+    }),
+
+  getPayrollEntries: workspaceProcedure
+    .input(
+      z.object({
+        employeeId: z.string(),
+        year: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const employee = await ctx.db.query.employees.findFirst({
+        where: and(
+          eq(employees.id, input.employeeId),
+          eq(employees.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!employee) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const allEntries = await ctx.db.query.payrollEntries.findMany({
+        where: eq(payrollEntries.employeeId, input.employeeId),
+        with: {
+          payrollRun: {
+            with: {
+              fiscalPeriod: true,
+            },
+          },
+        },
+      });
+
+      const sortedEntries = allEntries.sort((a, b) => {
+        const periodCompare = b.payrollRun.period.localeCompare(a.payrollRun.period);
+        if (periodCompare !== 0) return periodCompare;
+        return b.payrollRun.runNumber - a.payrollRun.runNumber;
+      });
+
+      if (input.year) {
+        return sortedEntries.filter((entry) =>
+          entry.payrollRun.period.startsWith(input.year!)
+        );
+      }
+
+      return sortedEntries;
+    }),
+
+  getPayrollStats: workspaceProcedure
+    .input(z.object({ employeeId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const employee = await ctx.db.query.employees.findFirst({
+        where: and(
+          eq(employees.id, input.employeeId),
+          eq(employees.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!employee) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const stats = await ctx.db
+        .select({
+          year: sql<string>`SUBSTRING(${payrollRuns.period}, 1, 4)`,
+          totalGross: sql<string>`COALESCE(SUM(${payrollEntries.grossSalary}), 0)`,
+          totalNet: sql<string>`COALESCE(SUM(${payrollEntries.netSalary}), 0)`,
+          totalTax: sql<string>`COALESCE(SUM(${payrollEntries.taxDeduction}), 0)`,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(payrollEntries)
+        .innerJoin(payrollRuns, eq(payrollEntries.payrollRunId, payrollRuns.id))
+        .where(eq(payrollEntries.employeeId, input.employeeId))
+        .groupBy(sql`SUBSTRING(${payrollRuns.period}, 1, 4)`)
+        .orderBy(sql`SUBSTRING(${payrollRuns.period}, 1, 4) DESC`);
+
+      return stats;
     }),
 });

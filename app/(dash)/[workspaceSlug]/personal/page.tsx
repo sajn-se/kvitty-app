@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, UserCircle, Pencil, Archive } from "@phosphor-icons/react";
+import Link from "next/link";
+import { Plus, UserCircle, ArrowRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -76,11 +77,6 @@ export default function PersonalPage() {
     },
   });
 
-  const archiveEmployee = trpc.employees.archive.useMutation({
-    onSuccess: () => {
-      utils.employees.list.invalidate();
-    },
-  });
 
   const resetForm = () => {
     setForm({
@@ -178,7 +174,12 @@ export default function PersonalPage() {
                 {employees?.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="px-4 font-medium">
-                      {employee.firstName} {employee.lastName}
+                      <Link
+                        href={`/${workspace.slug}/personal/${employee.id}`}
+                        className="hover:underline"
+                      >
+                        {employee.firstName} {employee.lastName}
+                      </Link>
                     </TableCell>
                     <TableCell className="px-4 font-mono text-sm">
                       {employee.personalNumber}
@@ -201,24 +202,11 @@ export default function PersonalPage() {
                       )}
                     </TableCell>
                     <TableCell className="px-4">
-                      {employee.isActive && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm("Vill du arkivera denna anställd?")) {
-                              archiveEmployee.mutate({
-                                id: employee.id,
-                                workspaceId: workspace.id,
-                              });
-                            }
-                          }}
-                          disabled={archiveEmployee.isPending}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Archive className="size-4" />
+                      <Link href={`/${workspace.slug}/personal/${employee.id}`}>
+                        <Button variant="ghost" size="icon">
+                          <ArrowRight className="size-4" />
                         </Button>
-                      )}
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}
