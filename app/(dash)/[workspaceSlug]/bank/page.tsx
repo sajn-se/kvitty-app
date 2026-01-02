@@ -214,7 +214,7 @@ export default function BankPage() {
 
         {/* Add Account Dialog */}
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogContent>
+          <DialogContent className="min-w-lg">
             <DialogHeader>
               <DialogTitle>Lägg till bankkonto</DialogTitle>
             </DialogHeader>
