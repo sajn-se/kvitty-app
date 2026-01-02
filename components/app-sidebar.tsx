@@ -31,6 +31,7 @@ import { AddPeriodDialog } from "@/components/periods/add-period-dialog";
 import { AddVerificationDialog } from "@/components/verifications/add-verification-dialog";
 import type { workspaces, fiscalPeriods } from "@/lib/db/schema";
 import { signOut } from "@/lib/auth-client";
+import { clearUserCookie } from "@/lib/user-cookie";
 
 type Workspace = typeof workspaces.$inferSelect;
 type FiscalPeriod = typeof fiscalPeriods.$inferSelect;
@@ -160,7 +161,10 @@ export function AppSidebar({
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => signOut().then(() => { window.location.href = "/login"; })}
+                    onClick={() => {
+                      clearUserCookie();
+                      signOut().then(() => { window.location.href = "/"; });
+                    }}
                     className="text-red-600"
                   >
                     <SignOut className="size-4 mr-2" />

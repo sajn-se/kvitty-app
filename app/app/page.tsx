@@ -4,25 +4,24 @@ import { db } from "@/lib/db";
 import { workspaceMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-export default async function Page() {
+export default async function AppPage() {
   const session = await getSession();
 
   if (!session) {
     redirect("/login");
   }
 
-  // Get user's first workspace
-  const membership = await db.query.workspaceMembers.findFirst({
+  const memberships = await db.query.workspaceMembers.findMany({
     where: eq(workspaceMembers.userId, session.user.id),
     with: {
       workspace: true,
     },
   });
 
-  if (membership) {
-    redirect(`/${membership.workspace.slug}`);
+  if (memberships.length > 0) {
+    redirect(`/${memberships[0].workspace.slug}`);
   }
 
-  // No workspaces - redirect to create one
-  redirect("/new-workspace");
+  redirect("/");
 }
+

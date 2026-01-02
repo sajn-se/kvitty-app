@@ -22,13 +22,16 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
+        // Transform URL to user-friendly path
+        const friendlyUrl = url.replace('/api/auth/magic-link/verify', '/login/verify');
+
         // TODO: Enable when domain is verified
         // await mailer.sendMail({
         //   from: process.env.EMAIL_FROM || "noreply@kvitty.app",
         //   to: email,
         //   subject: "Logga in på Kvitty",
-        //   text: `Klicka på länken för att logga in: ${url}`,
-        //   html: `<p>Klicka på länken för att logga in:</p><p><a href="${url}">${url}</a></p>`,
+        //   text: `Klicka på länken för att logga in: ${friendlyUrl}`,
+        //   html: `<p>Klicka på länken för att logga in:</p><p><a href="${friendlyUrl}">${friendlyUrl}</a></p>`,
         // });
 
         // Dev mode: Log to console
@@ -36,7 +39,7 @@ export const auth = betterAuth({
         console.log("🔗 MAGIC LINK LOGIN");
         console.log("========================================");
         console.log(`📧 Email: ${email}`);
-        console.log(`🔗 URL: ${url}`);
+        console.log(`🔗 URL: ${friendlyUrl}`);
         console.log("========================================\n");
       },
       expiresIn: 60 * 10, // 10 minutes
