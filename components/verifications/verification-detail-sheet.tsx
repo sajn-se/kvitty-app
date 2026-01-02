@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import type { verifications } from "@/lib/db/schema";
 
@@ -254,7 +255,7 @@ export function VerificationDetailSheet({
                 }
                 disabled={!comment.trim() || addComment.isPending}
               >
-                {addComment.isPending ? "Skickar..." : "Lägg till kommentar"}
+                {addComment.isPending ? <Spinner /> : "Lägg till kommentar"}
               </Button>
 
               <div className="space-y-4 pt-4">
@@ -314,8 +315,14 @@ export function VerificationDetailSheet({
               }
               disabled={deleteVerification.isPending}
             >
-              <Trash className="size-4 mr-2" />
-              {deleteVerification.isPending ? "Tar bort..." : "Ta bort verifikation"}
+              {deleteVerification.isPending ? (
+                <Spinner />
+              ) : (
+                <>
+                  <Trash className="size-4 mr-2" />
+                  Ta bort verifikation
+                </>
+              )}
             </Button>
           </div>
         </div>

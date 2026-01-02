@@ -1,14 +1,20 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
+import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { verifications } from "@/lib/db/schema";
 
-type Verification = typeof verifications.$inferSelect;
+export type Verification = typeof verifications.$inferSelect & {
+  createdByUser: { id: string; name: string | null; email: string } | null;
+};
 
-export const columns: ColumnDef<Verification>[] = [
+export const createColumns = (
+  onView: (verification: Verification) => void
+): ColumnDef<Verification>[] => [
   {
     accessorKey: "office",
-    header: "Kontor",
+    header: "Konto",
     cell: ({ row }) => row.getValue("office") || "—",
   },
   {
@@ -20,29 +26,13 @@ export const columns: ColumnDef<Verification>[] = [
     },
   },
   {
-    accessorKey: "ledgerDate",
-    header: "Reskontradag",
-    cell: ({ row }) => {
-      const value = row.getValue("ledgerDate");
-      return value || "—";
-    },
-  },
-  {
-    accessorKey: "currencyDate",
-    header: "Valutadag",
-    cell: ({ row }) => {
-      const value = row.getValue("currencyDate");
-      return value || "—";
-    },
-  },
-  {
     accessorKey: "reference",
     header: "Referens",
     cell: ({ row }) => row.getValue("reference") || "—",
   },
   {
     accessorKey: "amount",
-    header: "Insättning/Uttag",
+    header: "Belopp",
     cell: ({ row }) => {
       const value = row.getValue("amount") as string | null;
       if (!value) return "—";
@@ -54,16 +44,35 @@ export const columns: ColumnDef<Verification>[] = [
     },
   },
   {
-    accessorKey: "bookedBalance",
-    header: "Bokfört saldo",
+    accessorKey: "createdAt",
+    header: "Skapad",
     cell: ({ row }) => {
-      const value = row.getValue("bookedBalance") as string | null;
-      if (!value) return "—";
-      const balance = parseFloat(value);
-      return new Intl.NumberFormat("sv-SE", {
-        style: "currency",
-        currency: "SEK",
-      }).format(balance);
+      const date = row.getValue("createdAt") as Date | null;
+      if (!date) return "—";
+      return new Intl.DateTimeFormat("sv-SE").format(new Date(date));
     },
+  },
+  {
+    accessorKey: "createdByUser",
+    header: "Skapad av",
+    cell: ({ row }) => {
+      const user = row.original.createdByUser;
+      return user?.name || user?.email || "—";
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={(e) => {
+          e.stopPropagation();
+          onView(row.original);
+        }}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+    ),
   },
 ];

@@ -15,7 +15,7 @@ import { relations } from "drizzle-orm";
 // Better-Auth Tables
 // ============================================
 
-export const users = pgTable("users", {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -25,11 +25,11 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const sessions = pgTable("sessions", {
+export const session = pgTable("session", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   ipAddress: text("ip_address"),
@@ -38,11 +38,11 @@ export const sessions = pgTable("sessions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const accounts = pgTable("accounts", {
+export const account = pgTable("account", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
   accessToken: text("access_token"),
@@ -56,10 +56,10 @@ export const accounts = pgTable("accounts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const verificationTokens = pgTable("verification_tokens", {
+export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
-  token: text("token").notNull(),
+  value: text("value").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -75,7 +75,7 @@ export const workspaces = pgTable("workspaces", {
   slug: text("slug").notNull().unique(), // 4 chars, a-z0-9
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdBy: text("created_by").references(() => users.id),
+  createdBy: text("created_by").references(() => user.id),
 });
 
 export const workspaceMembers = pgTable(
@@ -87,7 +87,7 @@ export const workspaceMembers = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
   },
   (table) => [unique().on(table.workspaceId, table.userId)]
@@ -98,14 +98,15 @@ export const workspaceInvites = pgTable("workspace_invites", {
   workspaceId: text("workspace_id")
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
   token: text("token").notNull().unique(),
   createdBy: text("created_by")
     .notNull()
-    .references(() => users.id),
+    .references(() => user.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
   usedAt: timestamp("used_at"),
-  usedBy: text("used_by").references(() => users.id),
+  usedBy: text("used_by").references(() => user.id),
 });
 
 export const fiscalPeriods = pgTable(
@@ -144,7 +145,7 @@ export const verifications = pgTable("verifications", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by")
     .notNull()
-    .references(() => users.id),
+    .references(() => user.id),
 });
 
 export const attachments = pgTable("attachments", {
@@ -159,7 +160,7 @@ export const attachments = pgTable("attachments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: text("created_by")
     .notNull()
-    .references(() => users.id),
+    .references(() => user.id),
 });
 
 export const comments = pgTable("comments", {
@@ -171,7 +172,7 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: text("created_by")
     .notNull()
-    .references(() => users.id),
+    .references(() => user.id),
 });
 
 export const auditLogs = pgTable("audit_logs", {
@@ -181,7 +182,7 @@ export const auditLogs = pgTable("audit_logs", {
     .references(() => workspaces.id, { onDelete: "cascade" }),
   userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => user.id),
   action: text("action").notNull(), // 'create', 'update', 'delete'
   entityType: text("entity_type").notNull(), // 'verification', 'attachment', 'comment'
   entityId: text("entity_id").notNull(),
@@ -193,9 +194,9 @@ export const auditLogs = pgTable("audit_logs", {
 // Relations
 // ============================================
 
-export const usersRelations = relations(users, ({ many }) => ({
-  sessions: many(sessions),
-  accounts: many(accounts),
+export const userRelations = relations(user, ({ many }) => ({
+  sessions: many(session),
+  accounts: many(account),
   workspaceMembers: many(workspaceMembers),
   createdWorkspaces: many(workspaces),
   verifications: many(verifications),
@@ -204,24 +205,24 @@ export const usersRelations = relations(users, ({ many }) => ({
   auditLogs: many(auditLogs),
 }));
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(users, {
-    fields: [sessions.userId],
-    references: [users.id],
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
   }),
 }));
 
-export const accountsRelations = relations(accounts, ({ one }) => ({
-  user: one(users, {
-    fields: [accounts.userId],
-    references: [users.id],
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, {
+    fields: [account.userId],
+    references: [user.id],
   }),
 }));
 
 export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
-  createdBy: one(users, {
+  createdBy: one(user, {
     fields: [workspaces.createdBy],
-    references: [users.id],
+    references: [user.id],
   }),
   members: many(workspaceMembers),
   invites: many(workspaceInvites),
@@ -237,9 +238,9 @@ export const workspaceMembersRelations = relations(
       fields: [workspaceMembers.workspaceId],
       references: [workspaces.id],
     }),
-    user: one(users, {
+    user: one(user, {
       fields: [workspaceMembers.userId],
-      references: [users.id],
+      references: [user.id],
     }),
   })
 );
@@ -251,13 +252,13 @@ export const workspaceInvitesRelations = relations(
       fields: [workspaceInvites.workspaceId],
       references: [workspaces.id],
     }),
-    createdByUser: one(users, {
+    createdByUser: one(user, {
       fields: [workspaceInvites.createdBy],
-      references: [users.id],
+      references: [user.id],
     }),
-    usedByUser: one(users, {
+    usedByUser: one(user, {
       fields: [workspaceInvites.usedBy],
-      references: [users.id],
+      references: [user.id],
     }),
   })
 );
@@ -284,9 +285,9 @@ export const verificationsRelations = relations(
       fields: [verifications.fiscalPeriodId],
       references: [fiscalPeriods.id],
     }),
-    createdByUser: one(users, {
+    createdByUser: one(user, {
       fields: [verifications.createdBy],
-      references: [users.id],
+      references: [user.id],
     }),
     attachments: many(attachments),
     comments: many(comments),
@@ -298,9 +299,9 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
     fields: [attachments.verificationId],
     references: [verifications.id],
   }),
-  createdByUser: one(users, {
+  createdByUser: one(user, {
     fields: [attachments.createdBy],
-    references: [users.id],
+    references: [user.id],
   }),
 }));
 
@@ -309,9 +310,9 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     fields: [comments.verificationId],
     references: [verifications.id],
   }),
-  createdByUser: one(users, {
+  createdByUser: one(user, {
     fields: [comments.createdBy],
-    references: [users.id],
+    references: [user.id],
   }),
 }));
 
@@ -320,8 +321,8 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
     fields: [auditLogs.workspaceId],
     references: [workspaces.id],
   }),
-  user: one(users, {
+  user: one(user, {
     fields: [auditLogs.userId],
-    references: [users.id],
+    references: [user.id],
   }),
 }));

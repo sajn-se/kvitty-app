@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { House, Gear, Users, SignOut } from "@phosphor-icons/react";
+import { House, Gear, Users, SignOut, User } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AddPeriodDialog } from "@/components/periods/add-period-dialog";
+import { AddVerificationDialog } from "@/components/verifications/add-verification-dialog";
 import type { workspaces, fiscalPeriods } from "@/lib/db/schema";
 import { signOut } from "@/lib/auth-client";
 
@@ -54,6 +55,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const [addPeriodOpen, setAddPeriodOpen] = useState(false);
+  const [addVerificationOpen, setAddVerificationOpen] = useState(false);
 
   const initials = user.name
     ? user.name
@@ -96,6 +98,7 @@ export function AppSidebar({
             periods={periods}
             workspaceSlug={workspace.slug}
             onAddPeriod={() => setAddPeriodOpen(true)}
+            onAddVerification={() => setAddVerificationOpen(true)}
           />
 
           <SidebarGroup className="mt-auto">
@@ -149,6 +152,13 @@ export function AppSidebar({
                   align="end"
                   sideOffset={4}
                 >
+                  <DropdownMenuItem asChild>
+                    <Link href="/user/settings">
+                      <User className="size-4 mr-2" weight="duotone" />
+                      Inställningar
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => signOut().then(() => { window.location.href = "/login"; })}
                     className="text-red-600"
@@ -166,8 +176,16 @@ export function AppSidebar({
 
       <AddPeriodDialog
         workspaceId={workspace.id}
+        workspaceSlug={workspace.slug}
         open={addPeriodOpen}
         onOpenChange={setAddPeriodOpen}
+      />
+
+      <AddVerificationDialog
+        workspaceId={workspace.id}
+        periods={periods}
+        open={addVerificationOpen}
+        onOpenChange={setAddVerificationOpen}
       />
     </>
   );

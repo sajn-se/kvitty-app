@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CaretUpDown, Plus, Receipt } from "@phosphor-icons/react";
 
 import {
@@ -30,7 +30,6 @@ export function WorkspaceSwitcher({
   currentWorkspace: Workspace;
 }) {
   const { isMobile } = useSidebar();
-  const router = useRouter();
 
   return (
     <SidebarMenu>
@@ -65,28 +64,25 @@ export function WorkspaceSwitcher({
               Arbetsytor
             </DropdownMenuLabel>
             {workspaces.map((workspace) => (
-              <DropdownMenuItem
-                key={workspace.id}
-                onClick={() => router.push(`/${workspace.slug}`)}
-                className="gap-2 p-2"
-              >
-                <div className="flex size-6 items-center justify-center rounded-md border">
-                  <Receipt className="size-3.5 shrink-0" weight="duotone" />
-                </div>
-                <span className="truncate">{workspace.name}</span>
+              <DropdownMenuItem key={workspace.id} asChild>
+                <Link href={`/${workspace.slug}`} className="gap-2 p-2">
+                  <div className="flex size-6 items-center justify-center rounded-md border">
+                    <Receipt className="size-3.5 shrink-0" weight="duotone" />
+                  </div>
+                  <span className="truncate">{workspace.name}</span>
+                </Link>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 p-2"
-              onClick={() => router.push("/new-workspace")}
-            >
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">
-                Ny arbetsyta
-              </div>
+            <DropdownMenuItem asChild>
+              <Link href="/new-workspace" className="gap-2 p-2">
+                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <Plus className="size-4" />
+                </div>
+                <div className="text-muted-foreground font-medium">
+                  Ny arbetsyta
+                </div>
+              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

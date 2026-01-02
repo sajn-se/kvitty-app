@@ -18,14 +18,18 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/lib/trpc/client";
 
 export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
+  const name = searchParams.get("name") || "";
 
   const [otp, setOtp] = useState("");
+  const updateProfile = trpc.users.updateProfile.useMutation();
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,13 +42,18 @@ export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
     setError(null);
 
     try {
-      const { error: verifyError } = await authClient.emailOtp.verifyEmail({
+      const { data, error: signInError } = await authClient.signIn.emailOtp({
         email,
         otp,
       });
 
-      if (verifyError) {
-        throw new Error(verifyError.message);
+      if (signInError) {
+        throw new Error(signInError.message);
+      }
+
+      // Update user's name if provided during signup
+      if (name) {
+        await updateProfile.mutateAsync({ name });
       }
 
       router.push("/");
@@ -63,7 +72,7 @@ export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
     try {
       const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({
         email,
-        type: "email-verification",
+        type: "sign-in",
       });
 
       if (otpError) {
@@ -127,9 +136,9 @@ export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
                 type="button"
                 onClick={handleResend}
                 disabled={isResending}
-                className="underline"
+                className="underline inline-flex items-center gap-1"
               >
-                {isResending ? "Skickar..." : "Skicka igen"}
+                {isResending ? <Spinner /> : "Skicka igen"}
               </button>
             </FieldDescription>
           </Field>
@@ -138,7 +147,7 @@ export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
           )}
           <Field>
             <Button type="submit" disabled={isLoading || otp.length !== 6}>
-              {isLoading ? "Verifierar..." : "Verifiera"}
+              {isLoading ? <Spinner /> : "Verifiera"}
             </Button>
           </Field>
         </FieldGroup>

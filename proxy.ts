@@ -7,7 +7,7 @@ const protectedRoutes = ["/dash"];
 // Routes that should redirect to dashboard if already authenticated
 const authRoutes = ["/login", "/signup", "/otp", "/magic-link-sent"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Check for session token (better-auth uses this cookie name)

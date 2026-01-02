@@ -11,6 +11,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 
 export function CreateWorkspaceForm() {
@@ -63,7 +64,7 @@ export function CreateWorkspaceForm() {
               type="submit"
               disabled={createWorkspace.isPending || !name.trim()}
             >
-              {createWorkspace.isPending ? "Skapar..." : "Skapa arbetsyta"}
+              {createWorkspace.isPending ? <Spinner /> : "Skapa arbetsyta"}
             </Button>
           </Field>
         </FieldGroup>

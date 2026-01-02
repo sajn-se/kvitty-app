@@ -17,16 +17,20 @@ import {
   FieldLabel,
   FieldDescription,
 } from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
+import { DatePicker } from "@/components/ui/date-picker";
 import { trpc } from "@/lib/trpc/client";
 
 interface AddPeriodDialogProps {
   workspaceId: string;
+  workspaceSlug: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function AddPeriodDialog({
   workspaceId,
+  workspaceSlug,
   open,
   onOpenChange,
 }: AddPeriodDialogProps) {
@@ -39,14 +43,15 @@ export function AddPeriodDialog({
   const [endDate, setEndDate] = useState("");
 
   const createPeriod = trpc.periods.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const newUrlSlug = variables.urlSlug;
       setLabel("");
       setUrlSlug("");
       setStartDate("");
       setEndDate("");
       onOpenChange(false);
       utils.periods.list.invalidate({ workspaceId });
-      router.refresh();
+      router.push(`/${workspaceSlug}/${newUrlSlug}`);
     },
   });
 
@@ -72,7 +77,7 @@ export function AddPeriodDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="min-w-2xl">
         <DialogHeader>
           <DialogTitle>Lägg till bokföringsperiod</DialogTitle>
           <DialogDescription>
@@ -113,24 +118,26 @@ export function AddPeriodDialog({
             <div className="grid grid-cols-2 gap-4">
               <Field>
                 <FieldLabel htmlFor="startDate">Startdatum</FieldLabel>
-                <Input
+                <DatePicker
                   id="startDate"
-                  type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
+                  placeholder="Välj startdatum"
                   required
                   disabled={createPeriod.isPending}
+                  className="w-full"
                 />
               </Field>
               <Field>
                 <FieldLabel htmlFor="endDate">Slutdatum</FieldLabel>
-                <Input
+                <DatePicker
                   id="endDate"
-                  type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
+                  placeholder="Välj slutdatum"
                   required
                   disabled={createPeriod.isPending}
+                  className="w-full"
                 />
               </Field>
             </div>
@@ -149,7 +156,7 @@ export function AddPeriodDialog({
                 Avbryt
               </Button>
               <Button type="submit" disabled={createPeriod.isPending}>
-                {createPeriod.isPending ? "Skapar..." : "Skapa period"}
+                {createPeriod.isPending ? <Spinner /> : "Skapa period"}
               </Button>
             </div>
           </FieldGroup>

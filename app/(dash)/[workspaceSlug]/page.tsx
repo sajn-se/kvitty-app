@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { workspaces, fiscalPeriods, verifications } from "@/lib/db/schema";
-import { eq, count } from "drizzle-orm";
+import { workspaces, fiscalPeriods, verifications, auditLogs, user } from "@/lib/db/schema";
+import { eq, count, sum, desc, sql } from "drizzle-orm";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,14 +9,10 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import Link from "next/link";
+import { DashboardMetrics } from "@/components/dashboard/dashboard-metrics";
+import { VerificationChart } from "@/components/dashboard/verification-chart";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { PeriodsList } from "@/components/dashboard/periods-list";
 
 export default async function WorkspaceDashboardPage({
   params,
@@ -33,10 +29,33 @@ export default async function WorkspaceDashboardPage({
     return null;
   }
 
-  const periods = await db.query.fiscalPeriods.findMany({
-    where: eq(fiscalPeriods.workspaceId, workspace.id),
-    orderBy: (periods, { desc }) => [desc(periods.startDate)],
-  });
+  // Fetch all data in parallel
+  const [periods, recentVerifications, recentAuditLogs] = await Promise.all([
+    // Periods with verification counts
+    db.query.fiscalPeriods.findMany({
+      where: eq(fiscalPeriods.workspaceId, workspace.id),
+      orderBy: (periods, { desc }) => [desc(periods.startDate)],
+    }),
+    // Recent verifications
+    db.query.verifications.findMany({
+      where: eq(verifications.workspaceId, workspace.id),
+      orderBy: (v, { desc }) => [desc(v.createdAt)],
+      limit: 6,
+      with: {
+        createdByUser: { columns: { id: true, name: true, email: true } },
+        fiscalPeriod: { columns: { label: true, urlSlug: true } },
+      },
+    }),
+    // Recent audit logs
+    db.query.auditLogs.findMany({
+      where: eq(auditLogs.workspaceId, workspace.id),
+      orderBy: (a, { desc }) => [desc(a.timestamp)],
+      limit: 4,
+      with: {
+        user: { columns: { id: true, name: true, email: true } },
+      },
+    }),
+  ]);
 
   // Get verification counts per period
   const periodStats = await Promise.all(
@@ -51,6 +70,86 @@ export default async function WorkspaceDashboardPage({
       };
     })
   );
+
+  // Calculate aggregate stats for current period
+  const currentPeriod = periodStats[0];
+  let stats = {
+    totalAmount: 0,
+    verificationCount: 0,
+    latestBalance: null as number | null,
+  };
+
+  if (currentPeriod) {
+    const [aggregates] = await db
+      .select({
+        totalAmount: sql<string>`COALESCE(SUM(CAST(${verifications.amount} AS DECIMAL)), 0)`,
+        count: count(),
+      })
+      .from(verifications)
+      .where(eq(verifications.fiscalPeriodId, currentPeriod.id));
+
+    // Get latest balance
+    const latestVerification = await db.query.verifications.findFirst({
+      where: eq(verifications.fiscalPeriodId, currentPeriod.id),
+      orderBy: (v, { desc }) => [desc(v.accountingDate), desc(v.createdAt)],
+      columns: { bookedBalance: true },
+    });
+
+    stats = {
+      totalAmount: parseFloat(aggregates?.totalAmount || "0"),
+      verificationCount: aggregates?.count || 0,
+      latestBalance: latestVerification?.bookedBalance
+        ? parseFloat(latestVerification.bookedBalance)
+        : null,
+    };
+  }
+
+  // Get chart data - monthly aggregation for current period
+  let chartData: { month: string; amount: number }[] = [];
+  if (currentPeriod) {
+    const monthlyData = await db
+      .select({
+        month: sql<string>`TO_CHAR(${verifications.accountingDate}, 'Mon')`,
+        monthNum: sql<string>`TO_CHAR(${verifications.accountingDate}, 'MM')`,
+        amount: sql<number>`COALESCE(SUM(ABS(CAST(${verifications.amount} AS DECIMAL))), 0)`,
+      })
+      .from(verifications)
+      .where(eq(verifications.fiscalPeriodId, currentPeriod.id))
+      .groupBy(
+        sql`TO_CHAR(${verifications.accountingDate}, 'Mon')`,
+        sql`TO_CHAR(${verifications.accountingDate}, 'MM')`
+      )
+      .orderBy(sql`TO_CHAR(${verifications.accountingDate}, 'MM')`);
+
+    chartData = monthlyData.map((d) => ({
+      month: d.month,
+      amount: Number(d.amount),
+    }));
+  }
+
+  // Combine activity items
+  const activityItems = [
+    ...recentVerifications.map((v) => ({
+      id: v.id,
+      type: "verification" as const,
+      reference: v.reference,
+      amount: v.amount,
+      periodLabel: v.fiscalPeriod?.label,
+      periodSlug: v.fiscalPeriod?.urlSlug,
+      userName: v.createdByUser?.name || v.createdByUser?.email,
+      timestamp: v.createdAt,
+    })),
+    ...recentAuditLogs.map((log) => ({
+      id: log.id,
+      type: "audit" as const,
+      action: log.action,
+      entityType: log.entityType,
+      userName: log.user?.name || log.user?.email,
+      timestamp: log.timestamp,
+    })),
+  ]
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    .slice(0, 8);
 
   return (
     <>
@@ -70,42 +169,32 @@ export default async function WorkspaceDashboardPage({
           </Breadcrumb>
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+
+      <div className="flex flex-1 flex-col gap-8 p-6 pt-0">
         <div>
-          <h1 className="text-2xl font-bold">{workspace.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{workspace.name}</h1>
           <p className="text-muted-foreground text-sm">Översikt</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {periodStats.map((period) => (
-            <Link key={period.id} href={`/${workspaceSlug}/${period.urlSlug}`}>
-              <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{period.label}</CardTitle>
-                  <CardDescription>
-                    {period.startDate} — {period.endDate}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{period.verificationCount}</p>
-                  <p className="text-muted-foreground text-sm">verifikationer</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        {/* Metrics Row */}
+        <DashboardMetrics
+          totalAmount={stats.totalAmount}
+          verificationCount={stats.verificationCount}
+          latestBalance={stats.latestBalance}
+          periodLabel={currentPeriod?.label}
+        />
 
-          {periods.length === 0 && (
-            <Card className="border-dashed col-span-full">
-              <CardHeader>
-                <CardTitle className="text-lg">Ingen period</CardTitle>
-                <CardDescription>
-                  Skapa din första bokföringsperiod för att börja lägga till
-                  verifikationer. Klicka på + i sidomenyn under
-                  &quot;Verifikationer&quot;.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
+        {/* Chart */}
+        <VerificationChart data={chartData} />
+
+        {/* Two Column: Activity + Periods */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ActivityFeed items={activityItems} workspaceSlug={workspaceSlug} />
+          <PeriodsList
+            periods={periodStats}
+            workspaceSlug={workspaceSlug}
+            currentPeriodId={currentPeriod?.id}
+          />
         </div>
       </div>
     </>

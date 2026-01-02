@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { workspaces, fiscalPeriods, verifications } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ilike, gte, lte, or } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import {
   Breadcrumb,
@@ -15,11 +15,14 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { VerificationsTable } from "@/components/verifications/verifications-table";
 import { AddVerificationButton } from "@/components/verifications/add-verification-button";
+import { VerificationFilterBar } from "@/components/verifications/verification-filter-bar";
 
 export default async function PeriodPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string; periodSlug: string }>;
+  searchParams: Promise<{ search?: string; dateFrom?: string; dateTo?: string }>;
 }) {
   const session = await getSession();
   if (!session) {
@@ -27,6 +30,7 @@ export default async function PeriodPage({
   }
 
   const { workspaceSlug, periodSlug } = await params;
+  const { search, dateFrom, dateTo } = await searchParams;
 
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, workspaceSlug),
@@ -47,9 +51,34 @@ export default async function PeriodPage({
     notFound();
   }
 
+  // Build filter conditions
+  const conditions = [eq(verifications.fiscalPeriodId, period.id)];
+
+  if (search) {
+    conditions.push(
+      or(
+        ilike(verifications.reference, `%${search}%`),
+        ilike(verifications.office, `%${search}%`)
+      )!
+    );
+  }
+
+  if (dateFrom) {
+    conditions.push(gte(verifications.accountingDate, dateFrom));
+  }
+
+  if (dateTo) {
+    conditions.push(lte(verifications.accountingDate, dateTo));
+  }
+
   const data = await db.query.verifications.findMany({
-    where: eq(verifications.fiscalPeriodId, period.id),
+    where: and(...conditions),
     orderBy: (v, { desc }) => [desc(v.accountingDate), desc(v.createdAt)],
+    with: {
+      createdByUser: {
+        columns: { id: true, name: true, email: true },
+      },
+    },
   });
 
   return (
@@ -89,12 +118,16 @@ export default async function PeriodPage({
             periodId={period.id}
           />
         </div>
-        <div className="bg-background rounded-xl border">
-          <VerificationsTable
-            data={data}
-            workspaceId={workspace.id}
-          />
-        </div>
+        <VerificationFilterBar
+          search={search ?? ""}
+          dateFrom={dateFrom ?? ""}
+          dateTo={dateTo ?? ""}
+        />
+        <VerificationsTable
+          data={data}
+          workspaceId={workspace.id}
+          hasFilters={!!(search || dateFrom || dateTo)}
+        />
       </div>
     </>
   );

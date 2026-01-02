@@ -13,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { signIn } from "@/lib/auth-client";
 
 export function LoginForm({
@@ -84,7 +85,7 @@ export function LoginForm({
           )}
           <Field>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Skickar..." : "Skicka inloggningslänk"}
+              {isLoading ? <Spinner /> : "Skicka inloggningslänk"}
             </Button>
           </Field>
         </FieldGroup>

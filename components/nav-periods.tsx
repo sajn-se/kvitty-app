@@ -28,19 +28,21 @@ export function NavPeriods({
   periods,
   workspaceSlug,
   onAddPeriod,
+  onAddVerification,
 }: {
   periods: FiscalPeriod[];
   workspaceSlug: string;
   onAddPeriod?: () => void;
+  onAddVerification?: () => void;
 }) {
   const pathname = usePathname();
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Verifikationer</SidebarGroupLabel>
-      <SidebarGroupAction title="Lägg till period" onClick={onAddPeriod}>
+      <SidebarGroupAction title="Lägg till verifikationer" onClick={onAddVerification}>
         <Plus className="size-4" />
-        <span className="sr-only">Lägg till period</span>
+        <span className="sr-only">Lägg till verifikationer</span>
       </SidebarGroupAction>
       <SidebarMenu>
         <Collapsible asChild defaultOpen className="group/collapsible">

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
   flexRender,
   SortingState,
 } from "@tanstack/react-table";
@@ -17,28 +16,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { columns } from "./verification-columns";
+import { createColumns, type Verification } from "./verification-columns";
 import { VerificationDetailSheet } from "./verification-detail-sheet";
-import type { verifications } from "@/lib/db/schema";
-
-type Verification = typeof verifications.$inferSelect;
 
 interface VerificationsTableProps {
   data: Verification[];
   workspaceId: string;
+  hasFilters: boolean;
 }
 
-export function VerificationsTable({ data, workspaceId }: VerificationsTableProps) {
+export function VerificationsTable({
+  data,
+  workspaceId,
+  hasFilters,
+}: VerificationsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedVerification, setSelectedVerification] =
     useState<Verification | null>(null);
+
+  const columns = useMemo(
+    () => createColumns(setSelectedVerification),
+    []
+  );
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     state: {
       sorting,
@@ -47,48 +52,52 @@ export function VerificationsTable({ data, workspaceId }: VerificationsTableProp
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => setSelectedVerification(row.original)}
-                className="cursor-pointer"
-                data-state={row.getIsSelected() && "selected"}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+      <div className="bg-background rounded-xl border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                Inga verifikationer hittades.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  onClick={() => setSelectedVerification(row.original)}
+                  className="cursor-pointer"
+                  data-state={row.getIsSelected() && "selected"}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  {hasFilters
+                    ? "Inga verifikationer matchar din sökning."
+                    : "Inga verifikationer hittades."}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <VerificationDetailSheet
         verification={selectedVerification}

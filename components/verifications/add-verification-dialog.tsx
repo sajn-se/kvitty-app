@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -14,57 +15,90 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { DatePicker } from "@/components/ui/date-picker";
 import { trpc } from "@/lib/trpc/client";
+import type { fiscalPeriods } from "@/lib/db/schema";
+
+type FiscalPeriod = typeof fiscalPeriods.$inferSelect;
 
 interface AddVerificationDialogProps {
   workspaceId: string;
-  periodId: string;
+  periodId?: string;
+  periods?: FiscalPeriod[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 interface VerificationRow {
   id: string;
-  office: string;
+  account: string;
   accountingDate: string;
-  ledgerDate: string;
-  currencyDate: string;
   reference: string;
   amount: string;
-  bookedBalance: string;
 }
 
 function createEmptyRow(): VerificationRow {
   return {
     id: crypto.randomUUID(),
-    office: "",
+    account: "",
     accountingDate: "",
-    ledgerDate: "",
-    currencyDate: "",
     reference: "",
     amount: "",
-    bookedBalance: "",
   };
 }
 
 export function AddVerificationDialog({
   workspaceId,
-  periodId,
+  periodId: initialPeriodId,
+  periods = [],
   open,
   onOpenChange,
 }: AddVerificationDialogProps) {
   const router = useRouter();
   const utils = trpc.useUtils();
   const [rows, setRows] = useState<VerificationRow[]>([createEmptyRow()]);
-  const [csvData, setCsvData] = useState("");
+  const [pastedContent, setPastedContent] = useState("");
+  const [selectedPeriodId, setSelectedPeriodId] = useState(initialPeriodId || "");
+
+  const periodId = initialPeriodId || selectedPeriodId;
+  const showPeriodSelector = !initialPeriodId && periods.length > 0;
 
   const createVerifications = trpc.verifications.create.useMutation({
     onSuccess: () => {
       setRows([createEmptyRow()]);
-      setCsvData("");
+      setPastedContent("");
       onOpenChange(false);
       utils.verifications.list.invalidate({ workspaceId, periodId });
       router.refresh();
+    },
+  });
+
+  const analyzeContent = trpc.verifications.analyzeContent.useMutation({
+    onSuccess: (data) => {
+      if (data.verifications.length === 0) {
+        toast.error("Ingen data hittades i texten.");
+        return;
+      }
+      const parsed: VerificationRow[] = data.verifications.slice(0, 50).map((v) => ({
+        id: crypto.randomUUID(),
+        account: v.office || "",
+        accountingDate: v.accountingDate || "",
+        reference: v.reference || "",
+        amount: v.amount?.toString() || "",
+      }));
+      setRows(parsed);
+    },
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 
@@ -86,31 +120,12 @@ export function AddVerificationDialog({
     }
   }
 
-  function parseCsv() {
-    const lines = csvData.trim().split("\n");
-    const parsed: VerificationRow[] = [];
-
-    for (const line of lines) {
-      // Handle tab-separated or comma-separated
-      const parts = line.includes("\t") ? line.split("\t") : line.split(",");
-
-      if (parts.length >= 1) {
-        parsed.push({
-          id: crypto.randomUUID(),
-          office: parts[0]?.trim() || "",
-          accountingDate: parts[1]?.trim() || "",
-          ledgerDate: parts[2]?.trim() || "",
-          currencyDate: parts[3]?.trim() || "",
-          reference: parts[4]?.trim() || "",
-          amount: parts[5]?.trim().replace(/\s/g, "").replace(",", ".") || "",
-          bookedBalance: parts[6]?.trim().replace(/\s/g, "").replace(",", ".") || "",
-        });
-      }
-    }
-
-    if (parsed.length > 0) {
-      setRows(parsed.slice(0, 50)); // Max 50 rows
-    }
+  function analyzeWithAI() {
+    if (!pastedContent.trim()) return;
+    analyzeContent.mutate({
+      workspaceId,
+      content: pastedContent,
+    });
   }
 
   function handleSubmit() {
@@ -124,20 +139,20 @@ export function AddVerificationDialog({
       workspaceId,
       fiscalPeriodId: periodId,
       verifications: validRows.map((row) => ({
-        office: row.office || null,
+        office: row.account || null,
         accountingDate: row.accountingDate || null,
-        ledgerDate: row.ledgerDate || null,
-        currencyDate: row.currencyDate || null,
+        ledgerDate: null,
+        currencyDate: null,
         reference: row.reference || null,
         amount: row.amount ? parseFloat(row.amount) : null,
-        bookedBalance: row.bookedBalance ? parseFloat(row.bookedBalance) : null,
+        bookedBalance: null,
       })),
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="min-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Lägg till verifikationer</DialogTitle>
           <DialogDescription>
@@ -145,59 +160,64 @@ export function AddVerificationDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {showPeriodSelector && (
+          <Field>
+            <FieldLabel>Period</FieldLabel>
+            <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Välj period" />
+              </SelectTrigger>
+              <SelectContent position="popper" className="z-[100]">
+                {periods.map((period) => (
+                  <SelectItem key={period.id} value={period.id}>
+                    {period.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
+
+        {periods.length === 0 && !initialPeriodId && (
+          <p className="text-sm text-muted-foreground">
+            Du måste skapa en bokföringsperiod först innan du kan lägga till verifikationer.
+          </p>
+        )}
+
         <Tabs defaultValue="manual" className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="manual">Manuell inmatning</TabsTrigger>
-            <TabsTrigger value="csv">Klistra in CSV</TabsTrigger>
+            <TabsTrigger value="paste">Klistra in data</TabsTrigger>
           </TabsList>
 
           <TabsContent value="manual" className="flex-1 overflow-auto">
             <div className="space-y-2">
-              <div className="grid grid-cols-[80px_100px_100px_100px_1fr_120px_120px_40px] gap-2 text-xs font-medium text-muted-foreground sticky top-0 bg-background py-2">
-                <div>Kontor</div>
-                <div>Bokf.dag</div>
-                <div>Resk.dag</div>
-                <div>Val.dag</div>
+              <div className="grid grid-cols-[100px_150px_1fr_140px_40px] gap-2 text-xs font-medium text-muted-foreground sticky top-0 bg-background py-2">
+                <div>Konto</div>
+                <div>Bokföringsdag</div>
                 <div>Referens</div>
                 <div>Belopp</div>
-                <div>Saldo</div>
                 <div></div>
               </div>
 
               {rows.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[80px_100px_100px_100px_1fr_120px_120px_40px] gap-2"
+                  className="grid grid-cols-[100px_150px_1fr_140px_40px] gap-2"
                 >
                   <Input
                     placeholder="6886"
-                    value={row.office}
-                    onChange={(e) => updateRow(row.id, "office", e.target.value)}
+                    value={row.account}
+                    onChange={(e) => updateRow(row.id, "account", e.target.value)}
                     className="h-8 text-sm"
                   />
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={row.accountingDate}
-                    onChange={(e) =>
-                      updateRow(row.id, "accountingDate", e.target.value)
+                    onChange={(value) =>
+                      updateRow(row.id, "accountingDate", value)
                     }
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="date"
-                    value={row.ledgerDate}
-                    onChange={(e) =>
-                      updateRow(row.id, "ledgerDate", e.target.value)
-                    }
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="date"
-                    value={row.currencyDate}
-                    onChange={(e) =>
-                      updateRow(row.id, "currencyDate", e.target.value)
-                    }
-                    className="h-8 text-sm"
+                    placeholder="Bokföringsdag"
+                    className="h-8 text-sm w-full"
                   />
                   <Input
                     placeholder="Referens"
@@ -211,14 +231,6 @@ export function AddVerificationDialog({
                     placeholder="-100.00"
                     value={row.amount}
                     onChange={(e) => updateRow(row.id, "amount", e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    placeholder="10000.00"
-                    value={row.bookedBalance}
-                    onChange={(e) =>
-                      updateRow(row.id, "bookedBalance", e.target.value)
-                    }
                     className="h-8 text-sm"
                   />
                   <Button
@@ -248,27 +260,30 @@ export function AddVerificationDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="csv" className="flex-1 flex flex-col gap-4">
+          <TabsContent value="paste" className="flex-1 flex flex-col gap-4">
             <Textarea
-              placeholder="Klistra in data från Excel eller bankutdrag här... (tab- eller kommaseparerat)
+              placeholder="Klistra in data från Excel, bankutdrag, PDF-text, e-post eller annat format...
 
-Kontor   Bokf.dag   Resk.dag   Val.dag   Referens   Belopp   Saldo
-6886     2025-12-30 2025-12-30 2025-12-30 CLAUDE.AI  -198,94  137659,39"
-              value={csvData}
-              onChange={(e) => setCsvData(e.target.value)}
+AI:n analyserar innehållet och extraherar verifikationer automatiskt."
+              value={pastedContent}
+              onChange={(e) => setPastedContent(e.target.value)}
               className="flex-1 min-h-[200px] font-mono text-sm"
             />
             <Button
               type="button"
               variant="outline"
-              onClick={parseCsv}
-              disabled={!csvData.trim()}
+              onClick={analyzeWithAI}
+              disabled={!pastedContent.trim() || analyzeContent.isPending}
             >
-              Analysera och förhandsgranska
+              {analyzeContent.isPending ? (
+                <Spinner />
+              ) : (
+                "Analysera"
+              )}
             </Button>
-            {rows.length > 1 && (
+            {rows.length > 1 && !analyzeContent.isPending && (
               <p className="text-sm text-muted-foreground">
-                {rows.length} rader redo att läggas till
+                {rows.length} rader redo att läggas till. Granska i fliken "Manuell inmatning".
               </p>
             )}
           </TabsContent>
@@ -291,11 +306,13 @@ Kontor   Bokf.dag   Resk.dag   Val.dag   Referens   Belopp   Saldo
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={createVerifications.isPending}
+            disabled={createVerifications.isPending || !periodId}
           >
-            {createVerifications.isPending
-              ? "Sparar..."
-              : `Lägg till ${rows.filter((r) => r.reference || r.amount).length} verifikationer`}
+            {createVerifications.isPending ? (
+              <Spinner />
+            ) : (
+              `Lägg till ${rows.filter((r) => r.reference || r.amount).length} verifikationer`
+            )}
           </Button>
         </div>
       </DialogContent>

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, workspaceProcedure } from "../init";
 import { workspaces, workspaceMembers } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { generateUniqueSlug } from "@/lib/workspace-slug";
 import {
   createWorkspaceSchema,
@@ -59,10 +59,28 @@ export const workspacesRouter = router({
   update: workspaceProcedure
     .input(updateWorkspaceSchema.extend({ workspaceId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // If slug is being updated, check for uniqueness
+      if (input.slug) {
+        const existing = await ctx.db.query.workspaces.findFirst({
+          where: and(
+            eq(workspaces.slug, input.slug),
+            ne(workspaces.id, ctx.workspaceId)
+          ),
+        });
+
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Denna URL-slug finns redan",
+          });
+        }
+      }
+
       const [updated] = await ctx.db
         .update(workspaces)
         .set({
           name: input.name,
+          ...(input.slug && { slug: input.slug }),
           updatedAt: new Date(),
         })
         .where(eq(workspaces.id, ctx.workspaceId))

@@ -13,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 
 export function SignupForm({
@@ -33,7 +34,7 @@ export function SignupForm({
     try {
       const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({
         email,
-        type: "email-verification",
+        type: "sign-in",
       });
 
       if (otpError) {
@@ -99,7 +100,7 @@ export function SignupForm({
           )}
           <Field>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Skickar..." : "Skapa konto"}
+              {isLoading ? <Spinner /> : "Skapa konto"}
             </Button>
           </Field>
         </FieldGroup>

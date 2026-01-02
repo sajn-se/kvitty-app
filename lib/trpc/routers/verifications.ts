@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { generateObject } from "ai";
 import { router, workspaceProcedure } from "../init";
 import { verifications, fiscalPeriods, auditLogs } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,6 +8,7 @@ import {
   createVerificationsSchema,
   updateVerificationSchema,
 } from "@/lib/validations/verification";
+import { verificationModel } from "@/lib/ai";
 
 export const verificationsRouter = router({
   list: workspaceProcedure
@@ -186,5 +188,42 @@ export const verificationsRouter = router({
       });
 
       return { success: true };
+    }),
+
+  analyzeContent: workspaceProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        content: z.string().min(1).max(50000),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result = await generateObject({
+        model: verificationModel,
+        schema: z.object({
+          verifications: z.array(
+            z.object({
+              office: z.string().nullable(),
+              accountingDate: z.string().nullable(),
+              reference: z.string().nullable(),
+              amount: z.number().nullable(),
+            })
+          ),
+        }),
+        prompt: `Extract verification/transaction data from the following content.
+
+For each row/transaction found, extract:
+- office: Account number or office code (if present)
+- accountingDate: Date in YYYY-MM-DD format (if present)
+- reference: Description, memo, or reference text
+- amount: Numeric amount (negative for debits/expenses, positive for credits)
+
+Return only the extracted data, no explanations.
+
+Content to analyze:
+${input.content}`,
+      });
+
+      return result.object;
     }),
 });
