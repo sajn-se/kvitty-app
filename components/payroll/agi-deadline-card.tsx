@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, CheckCircle, Warning, AlertCircle } from "@phosphor-icons/react";
+import { Calendar, CheckCircle, Warning, WarningCircle } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +59,7 @@ export function AGIDeadlineCard({
     if (isOverdue) {
       return (
         <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-          <AlertCircle className="size-3 mr-1" />
+          <WarningCircle className="size-3 mr-1" />
           Försenad
         </Badge>
       );

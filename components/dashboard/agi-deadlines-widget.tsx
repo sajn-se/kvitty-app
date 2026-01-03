@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, AlertCircle, CheckCircle } from "@phosphor-icons/react";
+import { Calendar, WarningCircle, CheckCircle } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export function AGIDeadlinesWidget({
           </div>
           {overdue.length > 0 && (
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-              <AlertCircle className="size-3 mr-1" />
+              <WarningCircle className="size-3 mr-1" />
               {overdue.length} försenad{overdue.length > 1 ? "a" : ""}
             </Badge>
           )}
@@ -88,7 +88,7 @@ export function AGIDeadlinesWidget({
                   className="flex items-center justify-between p-2 bg-red-50 rounded-md border border-red-200"
                 >
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="size-4 text-red-600" />
+                    <WarningCircle className="size-4 text-red-600" />
                     <div>
                       <div className="text-sm font-medium">
                         {deadline.period.substring(0, 4)}-{deadline.period.substring(4)} • Körning {deadline.runNumber}

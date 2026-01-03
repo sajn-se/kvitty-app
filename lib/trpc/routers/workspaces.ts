@@ -101,6 +101,14 @@ export const workspacesRouter = router({
           ...(input.address !== undefined && { address: input.address || null }),
           ...(input.postalCode !== undefined && { postalCode: input.postalCode || null }),
           ...(input.city !== undefined && { city: input.city || null }),
+          // Payment info
+          ...(input.bankgiro !== undefined && { bankgiro: input.bankgiro || null }),
+          ...(input.plusgiro !== undefined && { plusgiro: input.plusgiro || null }),
+          ...(input.iban !== undefined && { iban: input.iban || null }),
+          ...(input.bic !== undefined && { bic: input.bic || null }),
+          ...(input.swishNumber !== undefined && { swishNumber: input.swishNumber || null }),
+          ...(input.paymentTermsDays !== undefined && { paymentTermsDays: input.paymentTermsDays }),
+          ...(input.invoiceNotes !== undefined && { invoiceNotes: input.invoiceNotes || null }),
           updatedAt: new Date(),
         })
         .where(eq(workspaces.id, ctx.workspaceId))

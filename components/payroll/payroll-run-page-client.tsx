@@ -8,6 +8,10 @@ import {
   Check,
   Download,
   FileCode,
+  Money,
+  EnvelopeSimple,
+  FileText,
+  CaretDown,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,12 +33,21 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { trpc } from "@/lib/trpc/client";
+import { toast } from "sonner";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AddPayrollEntryDialog } from "@/components/payroll/add-payroll-entry-dialog";
 import { AgiPreviewDialog } from "@/components/payroll/agi-preview-dialog";
 import { PayrollRunEntriesTable } from "@/components/payroll/payroll-run-entries-table";
 import { AGIDeadlineCard } from "@/components/payroll/agi-deadline-card";
+import { SalaryStatementsList } from "@/components/payroll/salary-statements-list";
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   draft: { label: "Utkast", color: "bg-gray-100 text-gray-700" },
@@ -55,6 +68,7 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
 
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [agiPreviewOpen, setAgiPreviewOpen] = useState(false);
+  const [generatingSalaryStatementId, setGeneratingSalaryStatementId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -92,6 +106,60 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
     },
   });
 
+  const markAsPaid = trpc.payroll.markAsPaid.useMutation({
+    onSuccess: () => {
+      utils.payroll.getRun.invalidate();
+      toast.success("Lönekörningen har markerats som betald");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Kunde inte markera som betald");
+    },
+  });
+
+  const generateAllSalaryStatements = trpc.payroll.generateAllSalaryStatements.useMutation({
+    onSuccess: (data, variables) => {
+      utils.payroll.getRun.invalidate();
+      utils.payroll.getSalaryStatements.invalidate();
+      if (variables.sendEmail) {
+        toast.success(`Lönebesked har genererats och skickats till ${data.successful} anställda`);
+      } else {
+        toast.success(`Lönebesked har genererats för ${data.successful} anställda`);
+      }
+      if (data.failed > 0) {
+        toast.error(`${data.failed} lönebesked kunde inte genereras`);
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Kunde inte generera lönebesked");
+    },
+  });
+
+  const generateSalaryStatement = trpc.payroll.generateSalaryStatement.useMutation({
+    onSuccess: (data, variables) => {
+      utils.payroll.getRun.invalidate();
+      utils.payroll.getSalaryStatements.invalidate();
+      setGeneratingSalaryStatementId(null);
+      if (variables.sendEmail) {
+        toast.success("Lönebesked har skickats");
+      } else {
+        toast.success("Lönebesked har genererats");
+      }
+    },
+    onError: (error) => {
+      setGeneratingSalaryStatementId(null);
+      toast.error(error.message || "Kunde inte generera lönebesked");
+    },
+  });
+
+  const handleGenerateSalaryStatement = (entryId: string, sendEmail: boolean) => {
+    setGeneratingSalaryStatementId(entryId);
+    generateSalaryStatement.mutate({
+      payrollEntryId: entryId,
+      workspaceId: workspace.id,
+      sendEmail,
+    });
+  };
+
   const formatCurrency = (value: string | number | null) => {
     if (!value) return "0 kr";
     const num = typeof value === "string" ? parseFloat(value) : value;
@@ -118,6 +186,8 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
   const isDraft = run.status === "draft";
   const canApprove = run.status === "calculated" && run.entries.length > 0;
   const canGenerateAGI = run.status === "approved";
+  const canMarkAsPaid = run.status === "approved" && !!run.agiXml;
+  const canSendSalaryStatements = (run.status === "approved" || run.status === "paid" || run.status === "reported") && run.entries.length > 0;
 
   const availableEmployees = employees?.filter(
     (emp) => !run.entries.some((entry) => entry.employeeId === emp.id)
@@ -223,6 +293,57 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
                 Ladda ner AGI
               </Button>
             )}
+            {canMarkAsPaid && (
+              <Button
+                onClick={() => markAsPaid.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
+                disabled={markAsPaid.isPending}
+              >
+                {markAsPaid.isPending ? <Spinner /> : <Money className="size-4 mr-2" />}
+                Markera som betald
+              </Button>
+            )}
+            {canSendSalaryStatements && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={generateAllSalaryStatements.isPending}>
+                    {generateAllSalaryStatements.isPending ? (
+                      <Spinner />
+                    ) : (
+                      <FileText className="size-4 mr-2" />
+                    )}
+                    Lönebesked
+                    <CaretDown className="size-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      generateAllSalaryStatements.mutate({
+                        payrollRunId: run.id,
+                        workspaceId: workspace.id,
+                        sendEmail: false,
+                      })
+                    }
+                  >
+                    <FileText className="size-4 mr-2" />
+                    Generera lönebesked
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      generateAllSalaryStatements.mutate({
+                        payrollRunId: run.id,
+                        workspaceId: workspace.id,
+                        sendEmail: true,
+                      })
+                    }
+                  >
+                    <EnvelopeSimple className="size-4 mr-2" />
+                    Skicka lönebesked via e-post
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
@@ -306,10 +427,24 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
                 isDraft={isDraft}
                 onRemove={(entryId) => removeEntry.mutate({ id: entryId, workspaceId: workspace.id })}
                 isRemoving={removeEntry.isPending}
+                showSalaryStatementActions={canSendSalaryStatements}
+                onGenerateSalaryStatement={handleGenerateSalaryStatement}
+                isGeneratingSalaryStatement={generateSalaryStatement.isPending}
+                generatingSalaryStatementId={generatingSalaryStatementId}
               />
             )}
           </CardContent>
         </Card>
+
+        {canSendSalaryStatements && (
+          <SalaryStatementsList
+            payrollRunId={run.id}
+            workspaceId={workspace.id}
+            onGenerateStatement={handleGenerateSalaryStatement}
+            isGenerating={generateSalaryStatement.isPending}
+            generatingId={generatingSalaryStatementId}
+          />
+        )}
 
         <AddPayrollEntryDialog
           payrollRunId={run.id}

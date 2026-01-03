@@ -93,6 +93,20 @@ export const productUnitEnum = pgEnum("product_unit", [
 export const productTypeEnum = pgEnum("product_type", ["V", "T"]); // V=Varor, T=Tjänster
 
 export const invoiceLineTypeEnum = pgEnum("invoice_line_type", ["product", "text"]);
+
+export const bankTransactionStatusEnum = pgEnum("bank_transaction_status", [
+  "pending",
+  "matched",
+  "booked",
+  "ignored",
+]);
+
+export const bankImportBatchStatusEnum = pgEnum("bank_import_batch_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+]);
 import { relations } from "drizzle-orm";
 
 // ============================================
@@ -168,6 +182,14 @@ export const workspaces = pgTable("workspaces", {
   address: text("address"),
   postalCode: text("postal_code"),
   city: text("city"),
+  // Payment info for invoices
+  bankgiro: text("bankgiro"), // e.g., "123-4567"
+  plusgiro: text("plusgiro"), // e.g., "12 34 56-7"
+  iban: text("iban"), // e.g., "SE35 5000 0000 0549 1000 0003"
+  bic: text("bic"), // e.g., "ESSESESS"
+  swishNumber: text("swish_number"), // For Swish payments
+  paymentTermsDays: integer("payment_terms_days").default(30),
+  invoiceNotes: text("invoice_notes"), // Default footer text for invoices
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by").references(() => user.id),
@@ -222,6 +244,29 @@ export const fiscalPeriods = pgTable(
   (table) => [unique().on(table.workspaceId, table.urlSlug)]
 );
 
+// Bank import batches for tracking import history
+export const bankImportBatches = pgTable("bank_import_batches", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  fiscalPeriodId: text("fiscal_period_id")
+    .notNull()
+    .references(() => fiscalPeriods.id, { onDelete: "cascade" }),
+  bankAccountId: text("bank_account_id").references(() => bankAccounts.id, { onDelete: "set null" }),
+  fileName: text("file_name").notNull(),
+  fileFormat: text("file_format").notNull(), // 'csv', 'ofx', 'sie4', 'manual'
+  status: bankImportBatchStatusEnum("status").default("pending").notNull(),
+  totalTransactions: integer("total_transactions").default(0),
+  importedTransactions: integer("imported_transactions").default(0),
+  duplicateTransactions: integer("duplicate_transactions").default(0),
+  errorMessage: text("error_message"),
+  importedAt: timestamp("imported_at").defaultNow().notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => user.id),
+});
+
 export const bankTransactions = pgTable("bank_transactions", {
   id: text("id").primaryKey().$defaultFn(() => createCuid()),
   workspaceId: text("workspace_id")
@@ -231,6 +276,7 @@ export const bankTransactions = pgTable("bank_transactions", {
     .notNull()
     .references(() => fiscalPeriods.id, { onDelete: "cascade" }),
   bankAccountId: text("bank_account_id").references(() => bankAccounts.id, { onDelete: "set null" }),
+  importBatchId: text("import_batch_id").references(() => bankImportBatches.id, { onDelete: "set null" }),
   office: text("office"), // Kontor
   accountingDate: date("accounting_date"), // Bokföringsdag
   ledgerDate: date("ledger_date"), // Reskontradag
@@ -238,6 +284,9 @@ export const bankTransactions = pgTable("bank_transactions", {
   reference: text("reference"), // Referens
   amount: decimal("amount", { precision: 15, scale: 2 }), // Insättning/Uttag
   bookedBalance: decimal("booked_balance", { precision: 15, scale: 2 }), // Bokfört saldo
+  status: bankTransactionStatusEnum("status").default("pending").notNull(),
+  hash: text("hash"), // For duplicate detection (date + amount + reference hash)
+  duplicateOfId: text("duplicate_of_id"), // Reference to original transaction if this is a duplicate
   importedAt: timestamp("imported_at"), // When transaction was imported
   mappedToJournalEntryId: text("mapped_to_journal_entry_id").references(() => journalEntries.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -418,6 +467,8 @@ export const payrollRuns = pgTable("payroll_runs", {
   agiDeadline: date("agi_deadline"), // Calculated deadline (12th of month after salary period)
   agiConfirmedAt: timestamp("agi_confirmed_at"), // When user confirmed AGI was reported
   agiConfirmedBy: text("agi_confirmed_by").references(() => user.id), // User ID who confirmed
+  paidAt: timestamp("paid_at"), // When salaries were actually paid
+  paidBy: text("paid_by").references(() => user.id), // User who marked as paid
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by")
@@ -444,6 +495,22 @@ export const payrollEntries = pgTable("payroll_entries", {
   workplaceAddress: text("workplace_address"),
   workplaceCity: text("workplace_city"),
   specificationNumber: integer("specification_number").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Salary statements (Lönebesked) for employees
+export const salaryStatements = pgTable("salary_statements", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  payrollEntryId: text("payroll_entry_id")
+    .notNull()
+    .references(() => payrollEntries.id, { onDelete: "cascade" }),
+  employeeId: text("employee_id")
+    .notNull()
+    .references(() => employees.id),
+  period: text("period").notNull(), // YYYYMM
+  pdfUrl: text("pdf_url"), // Vercel Blob URL
+  sentAt: timestamp("sent_at"),
+  sentTo: text("sent_to"), // Email address
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -535,6 +602,10 @@ export const invoices = pgTable("invoices", {
   paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }), // Actual amount paid (for overpayment tracking)
   sentJournalEntryId: text("sent_journal_entry_id").references(() => journalEntries.id), // Link to verification when sent (revenue recognition)
   journalEntryId: text("journal_entry_id").references(() => journalEntries.id), // Link to verification when paid
+  // Reminder tracking
+  emailSentCount: integer("email_sent_count").default(0).notNull(),
+  lastReminderSentAt: timestamp("last_reminder_sent_at"),
+  reminderCount: integer("reminder_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -666,6 +737,29 @@ export const fiscalPeriodsRelations = relations(
   })
 );
 
+export const bankImportBatchesRelations = relations(
+  bankImportBatches,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [bankImportBatches.workspaceId],
+      references: [workspaces.id],
+    }),
+    fiscalPeriod: one(fiscalPeriods, {
+      fields: [bankImportBatches.fiscalPeriodId],
+      references: [fiscalPeriods.id],
+    }),
+    bankAccount: one(bankAccounts, {
+      fields: [bankImportBatches.bankAccountId],
+      references: [bankAccounts.id],
+    }),
+    createdByUser: one(user, {
+      fields: [bankImportBatches.createdBy],
+      references: [user.id],
+    }),
+    transactions: many(bankTransactions),
+  })
+);
+
 export const bankTransactionsRelations = relations(
   bankTransactions,
   ({ one, many }) => ({
@@ -680,6 +774,10 @@ export const bankTransactionsRelations = relations(
     bankAccount: one(bankAccounts, {
       fields: [bankTransactions.bankAccountId],
       references: [bankAccounts.id],
+    }),
+    importBatch: one(bankImportBatches, {
+      fields: [bankTransactions.importBatchId],
+      references: [bankImportBatches.id],
     }),
     mappedToJournalEntry: one(journalEntries, {
       fields: [bankTransactions.mappedToJournalEntryId],
@@ -811,6 +909,10 @@ export const payrollRunsRelations = relations(
       fields: [payrollRuns.agiConfirmedBy],
       references: [user.id],
     }),
+    paidByUser: one(user, {
+      fields: [payrollRuns.paidBy],
+      references: [user.id],
+    }),
     journalEntry: one(journalEntries, {
       fields: [payrollRuns.journalEntryId],
       references: [journalEntries.id],
@@ -819,13 +921,25 @@ export const payrollRunsRelations = relations(
   })
 );
 
-export const payrollEntriesRelations = relations(payrollEntries, ({ one }) => ({
+export const payrollEntriesRelations = relations(payrollEntries, ({ one, many }) => ({
   payrollRun: one(payrollRuns, {
     fields: [payrollEntries.payrollRunId],
     references: [payrollRuns.id],
   }),
   employee: one(employees, {
     fields: [payrollEntries.employeeId],
+    references: [employees.id],
+  }),
+  salaryStatements: many(salaryStatements),
+}));
+
+export const salaryStatementsRelations = relations(salaryStatements, ({ one }) => ({
+  payrollEntry: one(payrollEntries, {
+    fields: [salaryStatements.payrollEntryId],
+    references: [payrollEntries.id],
+  }),
+  employee: one(employees, {
+    fields: [salaryStatements.employeeId],
     references: [employees.id],
   }),
 }));
@@ -956,6 +1070,14 @@ export type InvoiceLineType = (typeof invoiceLineTypeEnum.enumValues)[number];
 
 export type BankTransaction = typeof bankTransactions.$inferSelect;
 export type NewBankTransaction = typeof bankTransactions.$inferInsert;
+export type BankTransactionStatus = (typeof bankTransactionStatusEnum.enumValues)[number];
+
+export type BankImportBatch = typeof bankImportBatches.$inferSelect;
+export type NewBankImportBatch = typeof bankImportBatches.$inferInsert;
+export type BankImportBatchStatus = (typeof bankImportBatchStatusEnum.enumValues)[number];
+
+export type SalaryStatement = typeof salaryStatements.$inferSelect;
+export type NewSalaryStatement = typeof salaryStatements.$inferInsert;
 
 export type InvoiceOpenLog = typeof invoiceOpenLogs.$inferSelect;
 export type NewInvoiceOpenLog = typeof invoiceOpenLogs.$inferInsert;

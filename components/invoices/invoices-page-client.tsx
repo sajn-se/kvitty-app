@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { trpc } from "@/lib/trpc/client";
 import { CreateInvoiceDialog } from "@/components/invoices/create-invoice-dialog";
+import { SendReminderDialog } from "@/components/invoices/send-reminder-dialog";
 import { generateInvoicePdf } from "@/lib/utils/invoice-pdf";
 import { useWorkspace } from "@/components/workspace-provider";
 import { InvoicesTable } from "@/components/invoices/invoices-table";
@@ -37,11 +38,22 @@ type BokforingDialog =
   | { type: "markAsPaid"; invoiceId: string }
   | null;
 
+// State for reminder dialog
+interface ReminderInvoice {
+  id: string;
+  invoiceNumber: number;
+  customerName: string;
+  customerEmail: string | null;
+  total: string;
+  dueDate: string;
+}
+
 export function InvoicesPageClient() {
   const { workspace } = useWorkspace();
   const [createOpen, setCreateOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [bokforingDialog, setBokforingDialog] = useState<BokforingDialog>(null);
+  const [reminderInvoice, setReminderInvoice] = useState<ReminderInvoice | null>(null);
   const utils = trpc.useUtils();
 
   const { data: invoices, isLoading } = trpc.invoices.list.useQuery({
@@ -210,6 +222,16 @@ export function InvoicesPageClient() {
           onCreatePaidVerification={(invoiceId) =>
             createPaidVerification.mutate({ workspaceId: workspace.id, id: invoiceId })
           }
+          onSendReminder={(invoice) =>
+            setReminderInvoice({
+              id: invoice.id,
+              invoiceNumber: invoice.invoiceNumber,
+              customerName: invoice.customer.name,
+              customerEmail: invoice.customer.email,
+              total: invoice.total,
+              dueDate: invoice.dueDate,
+            })
+          }
         />
       )}
 
@@ -256,6 +278,21 @@ export function InvoicesPageClient() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Reminder Dialog */}
+      {reminderInvoice && (
+        <SendReminderDialog
+          open={true}
+          onOpenChange={(open) => !open && setReminderInvoice(null)}
+          invoiceId={reminderInvoice.id}
+          workspaceId={workspace.id}
+          invoiceNumber={reminderInvoice.invoiceNumber}
+          customerName={reminderInvoice.customerName}
+          customerEmail={reminderInvoice.customerEmail}
+          total={reminderInvoice.total}
+          dueDate={reminderInvoice.dueDate}
+        />
+      )}
     </div>
   );
 }

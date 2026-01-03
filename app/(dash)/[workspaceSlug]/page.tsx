@@ -15,6 +15,7 @@ import { VerificationChart } from "@/components/dashboard/verification-chart";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { PeriodsList } from "@/components/dashboard/periods-list";
 import { AGIDeadlinesWidget } from "@/components/dashboard/agi-deadlines-widget";
+import { OverdueInvoicesWidget } from "@/components/dashboard/overdue-invoices-widget";
 
 export async function generateMetadata({
   params,
@@ -203,8 +204,11 @@ export default async function WorkspaceDashboardPage({
         {/* Chart */}
         <VerificationChart data={chartData} />
 
-        {/* AGI Deadlines Widget */}
-        <AGIDeadlinesWidget workspaceId={workspace.id} workspaceSlug={workspaceSlug} />
+        {/* Widgets Row */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <AGIDeadlinesWidget workspaceId={workspace.id} workspaceSlug={workspaceSlug} />
+          <OverdueInvoicesWidget workspaceId={workspace.id} workspaceSlug={workspaceSlug} />
+        </div>
 
         {/* Two Column: Activity + Periods */}
         <div className="grid gap-6 lg:grid-cols-2">

@@ -20,8 +20,10 @@ async function wipeDatabase() {
   
   try {
     const tables = [
+      "invoice_open_logs",
       "invoice_lines",
       "invoices",
+      "products",
       "customers",
       "locked_periods",
       "payroll_entries",
@@ -33,7 +35,7 @@ async function wipeDatabase() {
       "audit_logs",
       "comments",
       "attachments",
-      "verifications",
+      "bank_transactions",
       "fiscal_periods",
       "workspace_invites",
       "workspace_members",
@@ -60,6 +62,10 @@ async function wipeDatabase() {
       "payroll_run_status",
       "fiscal_year_type",
       "invoice_status",
+      "invoice_sent_method",
+      "product_unit",
+      "product_type",
+      "invoice_line_type",
     ];
 
     for (const enumName of enums) {

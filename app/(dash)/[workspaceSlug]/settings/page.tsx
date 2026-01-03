@@ -65,20 +65,7 @@ export default async function SettingsPage({
           </p>
         </div>
 
-        <WorkspaceSettingsForm
-          workspaceId={workspace.id}
-          initialName={workspace.name}
-          initialSlug={workspace.slug}
-          initialBusinessType={workspace.businessType}
-          initialOrgNumber={workspace.orgNumber}
-          initialOrgName={workspace.orgName}
-          initialContactName={workspace.contactName}
-          initialContactPhone={workspace.contactPhone}
-          initialContactEmail={workspace.contactEmail}
-          initialAddress={workspace.address}
-          initialPostalCode={workspace.postalCode}
-          initialCity={workspace.city}
-        />
+        <WorkspaceSettingsForm workspace={workspace} />
       </div>
     </>
   );

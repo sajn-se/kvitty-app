@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FilePdf, PaperPlaneTilt, Check, DotsThree, Trash, Eye, BookOpen, CheckCircle } from "@phosphor-icons/react";
+import { FilePdf, PaperPlaneTilt, Check, DotsThree, Trash, Eye, BookOpen, CheckCircle, Bell } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,6 +32,7 @@ interface Invoice {
   customer: {
     name: string;
     contactPerson: string | null;
+    email: string | null;
   };
   invoiceDate: string;
   dueDate: string;
@@ -51,6 +52,7 @@ interface InvoicesTableProps {
   onDelete: (invoiceId: string) => void;
   onCreateSentVerification?: (invoiceId: string) => void;
   onCreatePaidVerification?: (invoiceId: string) => void;
+  onSendReminder?: (invoice: Invoice) => void;
 }
 
 // Display status types (includes calculated statuses)
@@ -108,6 +110,7 @@ export function InvoicesTable({
   onDelete,
   onCreateSentVerification,
   onCreatePaidVerification,
+  onSendReminder,
 }: InvoicesTableProps) {
   const formatCurrency = (value: string) => {
     return parseFloat(value).toLocaleString("sv-SE", {
@@ -249,6 +252,13 @@ export function InvoicesTable({
                       <DropdownMenuItem onClick={() => onMarkAsPaid(invoice.id)}>
                         <Check className="size-4 mr-2" />
                         Markera som betald
+                      </DropdownMenuItem>
+                    )}
+                    {/* Send reminder for overdue invoices */}
+                    {displayStatus === "overdue" && onSendReminder && (
+                      <DropdownMenuItem onClick={() => onSendReminder(invoice)}>
+                        <Bell className="size-4 mr-2" />
+                        Skicka påminnelse
                       </DropdownMenuItem>
                     )}
                     {/* Bokför nu actions for missing verifications */}

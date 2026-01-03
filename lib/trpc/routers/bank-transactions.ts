@@ -2,14 +2,16 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { generateObject } from "ai";
 import { router, workspaceProcedure } from "../init";
-import { bankTransactions, fiscalPeriods, auditLogs, bankAccounts, journalEntries } from "@/lib/db/schema";
-import { eq, and, isNull, or } from "drizzle-orm";
+import { bankTransactions, fiscalPeriods, auditLogs, bankAccounts, journalEntries, bankImportBatches } from "@/lib/db/schema";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import {
   createBankTransactionsSchema,
   updateBankTransactionSchema,
 } from "@/lib/validations/bank-transaction";
 import { bankTransactionModel } from "@/lib/ai";
 import { parseCSV, parseOFX, detectFileFormat } from "@/lib/utils/bank-import";
+import { parseSIE4, normalizeSIE4ToTransactions, filterBankAccountTransactions, isSIEFile } from "@/lib/utils/sie-import";
+import { generateTransactionHash, checkExistingHashes, createHashInput } from "@/lib/utils/transaction-hash";
 
 export const bankTransactionsRouter = router({
   list: workspaceProcedure
@@ -465,6 +467,341 @@ ${input.content}`,
       );
 
       return { count: created.length, transactions: created };
+    }),
+
+  importSIE4: workspaceProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        fiscalPeriodId: z.string(),
+        bankAccountId: z.string().optional(),
+        fileContent: z.string(),
+        fileName: z.string(),
+        filterBankAccounts: z.boolean().optional().default(true), // Only import 1900-1999 accounts
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify period belongs to workspace
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
+        where: and(
+          eq(fiscalPeriods.id, input.fiscalPeriodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!period) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ogiltig period",
+        });
+      }
+
+      // Verify bank account if provided
+      if (input.bankAccountId) {
+        const bankAccount = await ctx.db.query.bankAccounts.findFirst({
+          where: and(
+            eq(bankAccounts.id, input.bankAccountId),
+            eq(bankAccounts.workspaceId, ctx.workspaceId)
+          ),
+        });
+
+        if (!bankAccount) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Ogiltigt bankkonto",
+          });
+        }
+      }
+
+      // Validate file is SIE format
+      if (!isSIEFile(input.fileName, input.fileContent)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Filen måste vara i SIE-format (.se, .si, .sie)",
+        });
+      }
+
+      // Parse SIE4 content
+      const parseResult = parseSIE4(input.fileContent);
+
+      if (parseResult.errors.length > 0 && parseResult.verifications.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Kunde inte tolka SIE-filen: ${parseResult.errors.join(", ")}`,
+        });
+      }
+
+      // Normalize to bank transactions
+      let transactions = normalizeSIE4ToTransactions(parseResult);
+
+      // Optionally filter to only bank accounts (1900-1999)
+      if (input.filterBankAccounts) {
+        transactions = filterBankAccountTransactions(transactions);
+      }
+
+      if (transactions.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: input.filterBankAccounts
+            ? "Inga banktransaktioner (konto 1900-1999) hittades i SIE-filen"
+            : "Inga transaktioner hittades i SIE-filen",
+        });
+      }
+
+      // Create import batch
+      const [importBatch] = await ctx.db
+        .insert(bankImportBatches)
+        .values({
+          workspaceId: ctx.workspaceId,
+          fiscalPeriodId: input.fiscalPeriodId,
+          bankAccountId: input.bankAccountId || null,
+          fileName: input.fileName,
+          fileFormat: "sie4",
+          status: "processing",
+          totalTransactions: transactions.length,
+          createdBy: ctx.session.user.id,
+        })
+        .returning();
+
+      // Generate hashes and check for duplicates
+      const transactionsWithHashes = transactions.map((t, index) => {
+        const hashInput = createHashInput(t.accountingDate, t.amount, t.reference);
+        return {
+          ...t,
+          index,
+          hash: hashInput ? generateTransactionHash(hashInput) : null,
+        };
+      });
+
+      // Get all valid hashes
+      const validHashes = transactionsWithHashes
+        .filter((t) => t.hash !== null)
+        .map((t) => t.hash as string);
+
+      // Check existing hashes
+      const existingHashMap = await checkExistingHashes(ctx.workspaceId, validHashes);
+
+      // Separate duplicates from new transactions
+      const duplicateIndices = new Set<number>();
+      const seenHashes = new Set<string>();
+
+      for (const transaction of transactionsWithHashes) {
+        if (transaction.hash) {
+          if (existingHashMap.has(transaction.hash) || seenHashes.has(transaction.hash)) {
+            duplicateIndices.add(transaction.index);
+          } else {
+            seenHashes.add(transaction.hash);
+          }
+        }
+      }
+
+      // Filter to only new transactions
+      const newTransactions = transactionsWithHashes.filter(
+        (t) => !duplicateIndices.has(t.index)
+      );
+
+      const duplicateCount = duplicateIndices.size;
+      const importedCount = newTransactions.length;
+
+      // Insert new transactions
+      let created: typeof bankTransactions.$inferSelect[] = [];
+
+      if (newTransactions.length > 0) {
+        const importedAt = new Date();
+
+        created = await ctx.db
+          .insert(bankTransactions)
+          .values(
+            newTransactions.map((t) => ({
+              workspaceId: ctx.workspaceId,
+              fiscalPeriodId: input.fiscalPeriodId,
+              bankAccountId: input.bankAccountId || null,
+              importBatchId: importBatch.id,
+              accountingDate: t.accountingDate,
+              reference: t.reference || null,
+              amount: t.amount.toString(),
+              status: "pending" as const,
+              hash: t.hash,
+              importedAt,
+              createdBy: ctx.session.user.id,
+            }))
+          )
+          .returning();
+
+        // Create audit logs
+        await ctx.db.insert(auditLogs).values(
+          created.map((v) => ({
+            workspaceId: ctx.workspaceId,
+            userId: ctx.session.user.id,
+            action: "create",
+            entityType: "bank_transaction",
+            entityId: v.id,
+            changes: { after: v, imported: true, source: "sie4" },
+          }))
+        );
+      }
+
+      // Update import batch status
+      await ctx.db
+        .update(bankImportBatches)
+        .set({
+          status: "completed",
+          importedTransactions: importedCount,
+          duplicateTransactions: duplicateCount,
+        })
+        .where(eq(bankImportBatches.id, importBatch.id));
+
+      return {
+        total: transactions.length,
+        imported: importedCount,
+        duplicates: duplicateCount,
+        batchId: importBatch.id,
+        transactions: created,
+        parseErrors: parseResult.errors,
+        companyName: parseResult.companyName,
+        fiscalYear: parseResult.fiscalYearStart && parseResult.fiscalYearEnd
+          ? { start: parseResult.fiscalYearStart, end: parseResult.fiscalYearEnd }
+          : undefined,
+      };
+    }),
+
+  markAsBooked: workspaceProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        transactionIds: z.array(z.string()).min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify transactions exist and belong to workspace
+      const existingTransactions = await ctx.db.query.bankTransactions.findMany({
+        where: and(
+          eq(bankTransactions.workspaceId, ctx.workspaceId),
+          inArray(bankTransactions.id, input.transactionIds)
+        ),
+      });
+
+      if (existingTransactions.length !== input.transactionIds.length) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "En eller flera transaktioner hittades inte",
+        });
+      }
+
+      // Check that all transactions are in 'pending' status
+      const invalidTransactions = existingTransactions.filter(
+        (t) => t.status !== "pending"
+      );
+
+      if (invalidTransactions.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Endast väntande transaktioner kan markeras som bokförda. ${invalidTransactions.length} transaktioner har redan annan status.`,
+        });
+      }
+
+      // Update status to 'booked'
+      const updated = await ctx.db
+        .update(bankTransactions)
+        .set({
+          status: "booked",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(bankTransactions.workspaceId, ctx.workspaceId),
+            inArray(bankTransactions.id, input.transactionIds)
+          )
+        )
+        .returning();
+
+      // Create audit logs
+      await ctx.db.insert(auditLogs).values(
+        updated.map((v) => ({
+          workspaceId: ctx.workspaceId,
+          userId: ctx.session.user.id,
+          action: "update",
+          entityType: "bank_transaction",
+          entityId: v.id,
+          changes: { statusChange: { from: "pending", to: "booked" } },
+        }))
+      );
+
+      return {
+        updated: updated.length,
+        transactions: updated,
+      };
+    }),
+
+  markAsIgnored: workspaceProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        transactionIds: z.array(z.string()).min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify transactions exist and belong to workspace
+      const existingTransactions = await ctx.db.query.bankTransactions.findMany({
+        where: and(
+          eq(bankTransactions.workspaceId, ctx.workspaceId),
+          inArray(bankTransactions.id, input.transactionIds)
+        ),
+      });
+
+      if (existingTransactions.length !== input.transactionIds.length) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "En eller flera transaktioner hittades inte",
+        });
+      }
+
+      // Check that all transactions are in 'pending' or 'matched' status
+      const invalidTransactions = existingTransactions.filter(
+        (t) => t.status !== "pending" && t.status !== "matched"
+      );
+
+      if (invalidTransactions.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Endast väntande eller matchade transaktioner kan ignoreras. ${invalidTransactions.length} transaktioner har annan status.`,
+        });
+      }
+
+      // Update status to 'ignored'
+      const updated = await ctx.db
+        .update(bankTransactions)
+        .set({
+          status: "ignored",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(bankTransactions.workspaceId, ctx.workspaceId),
+            inArray(bankTransactions.id, input.transactionIds)
+          )
+        )
+        .returning();
+
+      // Create audit logs
+      await ctx.db.insert(auditLogs).values(
+        updated.map((v) => {
+          const before = existingTransactions.find((t) => t.id === v.id);
+          return {
+            workspaceId: ctx.workspaceId,
+            userId: ctx.session.user.id,
+            action: "update",
+            entityType: "bank_transaction",
+            entityId: v.id,
+            changes: { statusChange: { from: before?.status, to: "ignored" } },
+          };
+        })
+      );
+
+      return {
+        updated: updated.length,
+        transactions: updated,
+      };
     }),
 });
 

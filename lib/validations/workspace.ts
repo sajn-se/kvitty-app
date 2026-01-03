@@ -57,6 +57,14 @@ export const updateWorkspaceSchema = z.object({
   address: z.string().max(200).optional().nullable(),
   postalCode: z.string().max(10).optional().nullable(),
   city: z.string().max(100).optional().nullable(),
+  // Payment info
+  bankgiro: z.string().max(20).optional().nullable(),
+  plusgiro: z.string().max(20).optional().nullable(),
+  iban: z.string().max(34).optional().nullable(),
+  bic: z.string().max(11).optional().nullable(),
+  swishNumber: z.string().max(20).optional().nullable(),
+  paymentTermsDays: z.number().min(1).max(365).optional().nullable(),
+  invoiceNotes: z.string().max(1000).optional().nullable(),
 });
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;

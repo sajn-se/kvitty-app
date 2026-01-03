@@ -11,6 +11,7 @@ import {
   Trash,
   Plus,
   TextT,
+  Bell,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import { InvoiceLinesSection } from "@/components/invoices/invoice-lines-section
 import { InvoiceTotals } from "@/components/invoices/invoice-totals";
 import { AddProductDialog } from "@/components/invoices/add-product-dialog";
 import { SendInvoiceDialog } from "@/components/invoices/send-invoice-dialog";
+import { SendReminderDialog } from "@/components/invoices/send-reminder-dialog";
 
 interface InvoiceDetailClientProps {
   invoiceId: string;
@@ -35,6 +37,7 @@ export function InvoiceDetailClient({ invoiceId }: InvoiceDetailClientProps) {
   const utils = trpc.useUtils();
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [sendInvoiceOpen, setSendInvoiceOpen] = useState(false);
+  const [sendReminderOpen, setSendReminderOpen] = useState(false);
 
   const { data: invoice, isLoading } = trpc.invoices.get.useQuery({
     workspaceId: workspace.id,
@@ -102,6 +105,10 @@ export function InvoiceDetailClient({ invoiceId }: InvoiceDetailClientProps) {
 
   const isDraft = invoice.status === "draft";
 
+  // Check if invoice is overdue (sent and past due date)
+  const today = new Date().toISOString().split("T")[0];
+  const isOverdue = invoice.status === "sent" && invoice.dueDate < today;
+
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -160,6 +167,12 @@ export function InvoiceDetailClient({ invoiceId }: InvoiceDetailClientProps) {
                 <Check className="size-4 mr-2" />
               )}
               Markera som betald
+            </Button>
+          )}
+          {isOverdue && (
+            <Button variant="outline" onClick={() => setSendReminderOpen(true)}>
+              <Bell className="size-4 mr-2" />
+              Skicka påminnelse
             </Button>
           )}
           {isDraft && (
@@ -241,6 +254,19 @@ export function InvoiceDetailClient({ invoiceId }: InvoiceDetailClientProps) {
         sentMethod={invoice.sentMethod}
         openedCount={invoice.openedCount}
         lastOpenedAt={invoice.lastOpenedAt}
+      />
+
+      {/* Send Reminder Dialog */}
+      <SendReminderDialog
+        open={sendReminderOpen}
+        onOpenChange={setSendReminderOpen}
+        invoiceId={invoiceId}
+        workspaceId={workspace.id}
+        invoiceNumber={invoice.invoiceNumber}
+        customerName={invoice.customer.name}
+        customerEmail={invoice.customer.email}
+        total={invoice.total}
+        dueDate={invoice.dueDate}
       />
     </div>
   );

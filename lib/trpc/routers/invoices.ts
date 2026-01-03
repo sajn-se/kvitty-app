@@ -10,7 +10,7 @@ import {
   journalEntryLines,
   fiscalPeriods,
 } from "@/lib/db/schema";
-import { eq, and, sql, desc, max, lte, gte } from "drizzle-orm";
+import { eq, and, sql, desc, lte, gte, lt, asc } from "drizzle-orm";
 import {
   createInvoiceSchema,
   updateInvoiceSchema,
@@ -20,6 +20,7 @@ import {
   updateInvoiceMetadataSchema,
 } from "@/lib/validations/invoice";
 import { sendInvoiceEmailWithPdf, sendInvoiceEmailWithLink } from "@/lib/email/send-invoice";
+import { sendReminderEmailWithPdf } from "@/lib/email/send-reminder";
 import { createCuid } from "@/lib/utils/cuid";
 import { workspaces, invoiceOpenLogs } from "@/lib/db/schema";
 
@@ -1509,6 +1510,12 @@ export const invoicesRouter = router({
                 city: true,
                 contactEmail: true,
                 contactPhone: true,
+                bankgiro: true,
+                plusgiro: true,
+                iban: true,
+                bic: true,
+                swishNumber: true,
+                invoiceNotes: true,
               },
             },
           },
@@ -1611,5 +1618,176 @@ export const invoicesRouter = router({
           message: "Kunde inte spåra öppning",
         });
       }
+    }),
+
+  // List overdue invoices (sent but past due date)
+  listOverdue: workspaceProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(50),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const today = new Date().toISOString().split("T")[0];
+
+      const overdueInvoices = await ctx.db.query.invoices.findMany({
+        where: and(
+          eq(invoices.workspaceId, ctx.workspaceId),
+          eq(invoices.status, "sent"),
+          lt(invoices.dueDate, today)
+        ),
+        with: {
+          customer: true,
+          lines: {
+            orderBy: (l, { asc }) => [asc(l.sortOrder)],
+          },
+        },
+        orderBy: [asc(invoices.dueDate)],
+        limit: input.limit,
+      });
+
+      // Calculate days overdue for each invoice
+      return overdueInvoices.map((invoice) => {
+        const dueDate = new Date(invoice.dueDate);
+        const todayDate = new Date(today);
+        const diffTime = todayDate.getTime() - dueDate.getTime();
+        const daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return {
+          ...invoice,
+          daysOverdue,
+        };
+      });
+    }),
+
+  // Send payment reminder for overdue invoice
+  sendReminder: workspaceProcedure
+    .input(
+      z.object({
+        invoiceId: z.string(),
+        email: z.string().email().optional(),
+        customMessage: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const today = new Date().toISOString().split("T")[0];
+
+      // Get the invoice with customer and lines
+      const invoice = await ctx.db.query.invoices.findFirst({
+        where: and(
+          eq(invoices.id, input.invoiceId),
+          eq(invoices.workspaceId, ctx.workspaceId)
+        ),
+        with: {
+          customer: true,
+          lines: {
+            orderBy: (l, { asc }) => [asc(l.sortOrder)],
+          },
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Fakturan hittades inte" });
+      }
+
+      // Verify invoice is sent (not draft or paid)
+      if (invoice.status !== "sent") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: invoice.status === "draft"
+            ? "Fakturan måste skickas innan en påminnelse kan skickas"
+            : "Fakturan är redan betald",
+        });
+      }
+
+      // Verify invoice is overdue
+      if (invoice.dueDate >= today) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Fakturan är inte förfallen ännu",
+        });
+      }
+
+      // Calculate days overdue
+      const dueDate = new Date(invoice.dueDate);
+      const todayDate = new Date(today);
+      const diffTime = todayDate.getTime() - dueDate.getTime();
+      const daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Determine recipient email
+      const recipientEmail = input.email || invoice.customer.email;
+      if (!recipientEmail) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ingen e-postadress angiven och kunden har ingen registrerad e-post",
+        });
+      }
+
+      // Get workspace info
+      const workspace = await ctx.db.query.workspaces.findFirst({
+        where: eq(workspaces.id, ctx.workspaceId),
+      });
+
+      if (!workspace) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Arbetsyta hittades inte" });
+      }
+
+      // Calculate new reminder number
+      const newReminderCount = invoice.reminderCount + 1;
+
+      // Send the reminder email
+      try {
+        await sendReminderEmailWithPdf({
+          to: recipientEmail,
+          invoice,
+          customer: invoice.customer,
+          workspace,
+          invoiceLines: invoice.lines.map((line) => ({
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            vatRate: line.vatRate,
+            amount: line.amount,
+          })),
+          daysOverdue,
+          reminderNumber: newReminderCount,
+          customMessage: input.customMessage,
+        });
+      } catch (error) {
+        console.error("[Invoice sendReminder] Email sending failed", {
+          error: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          invoiceId: input.invoiceId,
+          invoiceNumber: invoice.invoiceNumber,
+          workspaceId: ctx.workspaceId,
+          recipientEmail,
+          timestamp: new Date().toISOString(),
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Kunde inte skicka påminnelse",
+        });
+      }
+
+      // Update invoice with reminder tracking
+      const now = new Date();
+      const [updated] = await ctx.db
+        .update(invoices)
+        .set({
+          reminderCount: newReminderCount,
+          lastReminderSentAt: now,
+          emailSentCount: sql`${invoices.emailSentCount} + 1`,
+          updatedAt: now,
+        })
+        .where(eq(invoices.id, input.invoiceId))
+        .returning();
+
+      return {
+        success: true,
+        invoice: updated,
+        reminderNumber: newReminderCount,
+        daysOverdue,
+        sentTo: recipientEmail,
+      };
     }),
 });

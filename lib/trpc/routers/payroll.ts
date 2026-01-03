@@ -9,6 +9,7 @@ import {
   journalEntries,
   journalEntryLines,
   auditLogs,
+  salaryStatements,
 } from "@/lib/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 import {
@@ -22,6 +23,9 @@ import {
 } from "@/lib/consts/employer-contribution-rates";
 import { generateAGIXml } from "@/lib/utils/agi-generator";
 import { decrypt } from "@/lib/utils/encryption";
+import { generateSalaryStatementPdf } from "@/lib/utils/salary-statement-pdf";
+import { sendSalaryStatementEmail } from "@/lib/email/send-salary-statement";
+import { put } from "@vercel/blob";
 
 export const payrollRouter = router({
   listRuns: workspaceProcedure
@@ -607,6 +611,41 @@ export const payrollRouter = router({
       return updated;
     }),
 
+  // Mark payroll as paid - transition from approved to paid
+  markAsPaid: workspaceProcedure
+    .input(z.object({ payrollRunId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const run = await ctx.db.query.payrollRuns.findFirst({
+        where: and(
+          eq(payrollRuns.id, input.payrollRunId),
+          eq(payrollRuns.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!run) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (run.status !== "approved") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Lönekörningen måste vara godkänd innan den kan markeras som betald",
+        });
+      }
+
+      const [updated] = await ctx.db
+        .update(payrollRuns)
+        .set({
+          status: "paid",
+          paidAt: new Date(),
+          paidBy: ctx.session.user.id,
+        })
+        .where(eq(payrollRuns.id, input.payrollRunId))
+        .returning();
+
+      return updated;
+    }),
+
   getAGIDeadlines: workspaceProcedure
     .input(
       z.object({
@@ -641,6 +680,324 @@ export const payrollRouter = router({
           ? new Date(run.agiDeadline) < today
           : false,
         isConfirmed: !!run.agiConfirmedAt,
+      }));
+    }),
+
+  // Generate salary statement for a single employee
+  generateSalaryStatement: workspaceProcedure
+    .input(
+      z.object({
+        payrollEntryId: z.string(),
+        sendEmail: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get the payroll entry with employee and run data
+      const entry = await ctx.db.query.payrollEntries.findFirst({
+        where: eq(payrollEntries.id, input.payrollEntryId),
+        with: {
+          employee: true,
+          payrollRun: true,
+        },
+      });
+
+      if (!entry) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Lonepost hittades inte",
+        });
+      }
+
+      // Verify workspace access
+      if (entry.payrollRun.workspaceId !== ctx.workspaceId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      // Get workspace info
+      const workspace = await ctx.db.query.workspaces.findFirst({
+        where: eq(workspaces.id, ctx.workspaceId),
+      });
+
+      if (!workspace) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      // Decrypt personal number for PDF
+      const decryptedPersonalNumber = decrypt(entry.employee.personalNumber);
+
+      // Generate PDF
+      const pdfDoc = generateSalaryStatementPdf({
+        workspace,
+        payrollRun: entry.payrollRun,
+        payrollEntry: entry,
+        employee: {
+          ...entry.employee,
+          personalNumber: decryptedPersonalNumber,
+        },
+      });
+
+      // Upload PDF to Vercel Blob
+      const pdfBuffer = Buffer.from(pdfDoc.output("arraybuffer") as ArrayBuffer);
+      const filename = `salary-statements/${ctx.workspaceId}/${entry.payrollRun.period}/${entry.employee.id}.pdf`;
+
+      const blob = await put(filename, pdfBuffer, {
+        access: "public",
+        contentType: "application/pdf",
+      });
+
+      // Check if statement already exists for this entry
+      const existingStatement = await ctx.db.query.salaryStatements.findFirst({
+        where: eq(salaryStatements.payrollEntryId, input.payrollEntryId),
+      });
+
+      let statementId: string;
+
+      if (existingStatement) {
+        // Update existing statement
+        const [updated] = await ctx.db
+          .update(salaryStatements)
+          .set({
+            pdfUrl: blob.url,
+          })
+          .where(eq(salaryStatements.id, existingStatement.id))
+          .returning();
+        statementId = updated.id;
+      } else {
+        // Create new statement record
+        const [statement] = await ctx.db
+          .insert(salaryStatements)
+          .values({
+            payrollEntryId: input.payrollEntryId,
+            employeeId: entry.employeeId,
+            period: entry.payrollRun.period,
+            pdfUrl: blob.url,
+          })
+          .returning();
+        statementId = statement.id;
+      }
+
+      // Send email if requested and employee has email
+      if (input.sendEmail && entry.employee.email) {
+        await sendSalaryStatementEmail({
+          to: entry.employee.email,
+          workspace,
+          payrollRun: entry.payrollRun,
+          payrollEntry: entry,
+          employee: {
+            ...entry.employee,
+            personalNumber: decryptedPersonalNumber,
+          },
+        });
+
+        // Update statement with sent info
+        await ctx.db
+          .update(salaryStatements)
+          .set({
+            sentAt: new Date(),
+            sentTo: entry.employee.email,
+          })
+          .where(eq(salaryStatements.id, statementId));
+      }
+
+      return {
+        statementId,
+        pdfUrl: blob.url,
+        emailSent: input.sendEmail && !!entry.employee.email,
+      };
+    }),
+
+  // Generate salary statements for all employees in a payroll run
+  generateAllSalaryStatements: workspaceProcedure
+    .input(
+      z.object({
+        payrollRunId: z.string(),
+        sendEmail: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get the payroll run with all entries
+      const run = await ctx.db.query.payrollRuns.findFirst({
+        where: and(
+          eq(payrollRuns.id, input.payrollRunId),
+          eq(payrollRuns.workspaceId, ctx.workspaceId)
+        ),
+        with: {
+          entries: {
+            with: {
+              employee: true,
+            },
+          },
+        },
+      });
+
+      if (!run) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Lonekornig hittades inte",
+        });
+      }
+
+      if (run.entries.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Lonekornigen har inga anstallda",
+        });
+      }
+
+      // Get workspace info
+      const workspace = await ctx.db.query.workspaces.findFirst({
+        where: eq(workspaces.id, ctx.workspaceId),
+      });
+
+      if (!workspace) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const results: Array<{
+        employeeId: string;
+        employeeName: string;
+        statementId: string;
+        pdfUrl: string;
+        emailSent: boolean;
+        error?: string;
+      }> = [];
+
+      for (const entry of run.entries) {
+        try {
+          // Decrypt personal number for PDF
+          const decryptedPersonalNumber = decrypt(entry.employee.personalNumber);
+
+          // Generate PDF
+          const pdfDoc = generateSalaryStatementPdf({
+            workspace,
+            payrollRun: run,
+            payrollEntry: entry,
+            employee: {
+              ...entry.employee,
+              personalNumber: decryptedPersonalNumber,
+            },
+          });
+
+          // Upload PDF to Vercel Blob
+          const pdfBuffer = Buffer.from(pdfDoc.output("arraybuffer") as ArrayBuffer);
+          const filename = `salary-statements/${ctx.workspaceId}/${run.period}/${entry.employee.id}.pdf`;
+
+          const blob = await put(filename, pdfBuffer, {
+            access: "public",
+            contentType: "application/pdf",
+          });
+
+          // Check if statement already exists
+          const existingStatement = await ctx.db.query.salaryStatements.findFirst({
+            where: eq(salaryStatements.payrollEntryId, entry.id),
+          });
+
+          let statementId: string;
+
+          if (existingStatement) {
+            const [updated] = await ctx.db
+              .update(salaryStatements)
+              .set({
+                pdfUrl: blob.url,
+              })
+              .where(eq(salaryStatements.id, existingStatement.id))
+              .returning();
+            statementId = updated.id;
+          } else {
+            const [statement] = await ctx.db
+              .insert(salaryStatements)
+              .values({
+                payrollEntryId: entry.id,
+                employeeId: entry.employeeId,
+                period: run.period,
+                pdfUrl: blob.url,
+              })
+              .returning();
+            statementId = statement.id;
+          }
+
+          let emailSent = false;
+
+          // Send email if requested and employee has email
+          if (input.sendEmail && entry.employee.email) {
+            await sendSalaryStatementEmail({
+              to: entry.employee.email,
+              workspace,
+              payrollRun: run,
+              payrollEntry: entry,
+              employee: {
+                ...entry.employee,
+                personalNumber: decryptedPersonalNumber,
+              },
+            });
+
+            await ctx.db
+              .update(salaryStatements)
+              .set({
+                sentAt: new Date(),
+                sentTo: entry.employee.email,
+              })
+              .where(eq(salaryStatements.id, statementId));
+
+            emailSent = true;
+          }
+
+          results.push({
+            employeeId: entry.employeeId,
+            employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
+            statementId,
+            pdfUrl: blob.url,
+            emailSent,
+          });
+        } catch (error) {
+          results.push({
+            employeeId: entry.employeeId,
+            employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
+            statementId: "",
+            pdfUrl: "",
+            emailSent: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      return {
+        total: run.entries.length,
+        successful: results.filter((r) => !r.error).length,
+        failed: results.filter((r) => r.error).length,
+        results,
+      };
+    }),
+
+  // Get salary statements for a payroll run
+  getSalaryStatements: workspaceProcedure
+    .input(z.object({ payrollRunId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const run = await ctx.db.query.payrollRuns.findFirst({
+        where: and(
+          eq(payrollRuns.id, input.payrollRunId),
+          eq(payrollRuns.workspaceId, ctx.workspaceId)
+        ),
+        with: {
+          entries: {
+            with: {
+              employee: true,
+              salaryStatements: true,
+            },
+          },
+        },
+      });
+
+      if (!run) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return run.entries.map((entry) => ({
+        payrollEntryId: entry.id,
+        employeeId: entry.employeeId,
+        employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
+        employeeEmail: entry.employee.email,
+        statement: entry.salaryStatements[0] || null,
       }));
     }),
 });

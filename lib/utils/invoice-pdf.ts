@@ -1,9 +1,29 @@
 import { jsPDF } from "jspdf";
-import type { Workspace, Invoice, InvoiceLine, Customer } from "@/lib/db/schema";
+import type { Invoice, InvoiceLine, Customer } from "@/lib/db/schema";
 import { unitLabels } from "@/lib/validations/product";
 
+// Partial workspace type for PDF generation - only includes fields actually used
+interface WorkspaceForPdf {
+  id: string;
+  name: string;
+  orgName?: string | null;
+  orgNumber?: string | null;
+  address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  // Payment info
+  bankgiro?: string | null;
+  plusgiro?: string | null;
+  iban?: string | null;
+  bic?: string | null;
+  swishNumber?: string | null;
+  invoiceNotes?: string | null;
+}
+
 interface InvoicePdfData {
-  workspace: Workspace;
+  workspace: WorkspaceForPdf;
   invoice: Invoice;
   customer: Customer;
   lines: InvoiceLine[];
@@ -183,13 +203,67 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
   doc.text("Att betala:", totalsX, y);
   doc.text(formatCurrency(parseFloat(invoice.total)) + " kr", pageWidth - margin - 2, y, { align: "right" });
 
+  // Payment info section
+  const hasPaymentInfo = workspace.bankgiro || workspace.plusgiro || workspace.iban || workspace.swishNumber;
+  if (hasPaymentInfo) {
+    y += 15;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text("Betalningsinformation", margin, y);
+
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    if (workspace.bankgiro) {
+      doc.text(`Bankgiro: ${workspace.bankgiro}`, margin, y);
+      y += 5;
+    }
+    if (workspace.plusgiro) {
+      doc.text(`Plusgiro: ${workspace.plusgiro}`, margin, y);
+      y += 5;
+    }
+    if (workspace.swishNumber) {
+      doc.text(`Swish: ${workspace.swishNumber}`, margin, y);
+      y += 5;
+    }
+    if (workspace.iban) {
+      let ibanText = `IBAN: ${workspace.iban}`;
+      if (workspace.bic) {
+        ibanText += ` / BIC: ${workspace.bic}`;
+      }
+      doc.text(ibanText, margin, y);
+      y += 5;
+    }
+
+    // Invoice reference
+    doc.text(`Märk betalningen med: Faktura ${invoice.invoiceNumber}`, margin, y);
+  }
+
+  // Custom invoice notes
+  if (workspace.invoiceNotes) {
+    y = Math.max(y + 15, 250);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80);
+
+    // Word wrap the notes
+    const noteLines = doc.splitTextToSize(workspace.invoiceNotes, pageWidth - 2 * margin);
+    noteLines.forEach((line: string) => {
+      if (y > 285) return; // Don't overflow page
+      doc.text(line, margin, y);
+      y += 4;
+    });
+  }
+
   // Payment info footer
-  y = 270;
-  doc.setFontSize(9);
+  y = 275;
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
 
-  const footerText = `Betalningsvillkor: 30 dagar netto. Vid försenad betalning debiteras dröjsmålsränta.`;
+  const footerText = `Betalningsvillkor: 30 dagar netto. Vid försenad betalning debiteras dröjsmålsränta enligt lag.`;
   doc.text(footerText, pageWidth / 2, y, { align: "center" });
 
 
