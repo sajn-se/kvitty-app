@@ -17,6 +17,10 @@ import {
   AddressBook,
   Invoice,
   Package,
+  ChartLine,
+  Scales,
+  Percent,
+  BookOpen,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -203,6 +207,68 @@ export function FullModeSidebar({
                   <Link href={`/${workspace.slug}/personal/lon`}>
                     <Money className="size-4" weight="duotone" />
                     <span>Lönekörningar</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+
+          {/* Rapporter */}
+          <SidebarGroup>
+            <SidebarGroupLabel>Rapporter</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === `/${workspace.slug}/rapporter/resultat`}
+                  tooltip="Resultatrapport"
+                >
+                  <Link href={`/${workspace.slug}/rapporter/resultat`}>
+                    <ChartLine className="size-4" weight="duotone" />
+                    <span>Resultatrapport</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === `/${workspace.slug}/rapporter/balans`}
+                  tooltip="Balansrapport"
+                >
+                  <Link href={`/${workspace.slug}/rapporter/balans`}>
+                    <Scales className="size-4" weight="duotone" />
+                    <span>Balansrapport</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === `/${workspace.slug}/rapporter/moms`}
+                  tooltip="Momsrapport"
+                >
+                  <Link href={`/${workspace.slug}/rapporter/moms`}>
+                    <Percent className="size-4" weight="duotone" />
+                    <span>Momsrapport</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+
+          {/* Bokföring och bokslut */}
+          <SidebarGroup>
+            <SidebarGroupLabel>Bokföring och bokslut</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === `/${workspace.slug}/bokslut`}
+                  tooltip="Årsbokslut"
+                >
+                  <Link href={`/${workspace.slug}/bokslut`}>
+                    <BookOpen className="size-4" weight="duotone" />
+                    <span>Årsbokslut</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

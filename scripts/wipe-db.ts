@@ -25,7 +25,6 @@ async function wipeDatabase() {
       "invoices",
       "products",
       "customers",
-      "locked_periods",
       "payroll_entries",
       "payroll_runs",
       "employees",

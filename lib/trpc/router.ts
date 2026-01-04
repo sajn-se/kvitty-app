@@ -12,10 +12,11 @@ import { bankAccountsRouter } from "./routers/bank-accounts";
 import { journalEntriesRouter } from "./routers/journal-entries";
 import { employeesRouter } from "./routers/employees";
 import { payrollRouter } from "./routers/payroll";
-import { lockedPeriodsRouter } from "./routers/locked-periods";
 import { customersRouter } from "./routers/customers";
 import { invoicesRouter } from "./routers/invoices";
 import { productsRouter } from "./routers/products";
+import { reportsRouter } from "./routers/reports";
+import { bokslutRouter } from "./routers/bokslut";
 
 export const appRouter = router({
   workspaces: workspacesRouter,
@@ -31,10 +32,11 @@ export const appRouter = router({
   journalEntries: journalEntriesRouter,
   employees: employeesRouter,
   payroll: payrollRouter,
-  lockedPeriods: lockedPeriodsRouter,
   customers: customersRouter,
   invoices: invoicesRouter,
   products: productsRouter,
+  reports: reportsRouter,
+  bokslut: bokslutRouter,
 });
 
 export type AppRouter = typeof appRouter;

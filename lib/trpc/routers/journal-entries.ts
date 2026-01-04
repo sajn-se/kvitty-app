@@ -5,7 +5,7 @@ import {
   journalEntries,
   journalEntryLines,
   journalEntryAttachments,
-  lockedPeriods,
+  fiscalPeriods,
   auditLogs,
 } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -86,20 +86,25 @@ export const journalEntriesRouter = router({
   create: workspaceProcedure
     .input(createJournalEntrySchema)
     .mutation(async ({ ctx, input }) => {
-      // Check if the month is locked
-      const entryMonth = input.entryDate.substring(0, 7); // YYYY-MM
-      const locked = await ctx.db.query.lockedPeriods.findFirst({
+      // Check if the fiscal period is locked
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
         where: and(
-          eq(lockedPeriods.workspaceId, ctx.workspaceId),
-          eq(lockedPeriods.fiscalPeriodId, input.fiscalPeriodId),
-          eq(lockedPeriods.month, entryMonth)
+          eq(fiscalPeriods.id, input.fiscalPeriodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
         ),
       });
 
-      if (locked) {
+      if (!period) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Räkenskapsperioden hittades inte",
+        });
+      }
+
+      if (period.isLocked) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Månaden ${entryMonth} är låst och kan inte ändras`,
+          message: `Räkenskapsåret ${period.label} är låst och kan inte ändras`,
         });
       }
 
@@ -182,20 +187,15 @@ export const journalEntriesRouter = router({
         });
       }
 
-      // Check if the month is locked
-      const entryMonth = (input.entryDate || entry.entryDate).substring(0, 7);
-      const locked = await ctx.db.query.lockedPeriods.findFirst({
-        where: and(
-          eq(lockedPeriods.workspaceId, ctx.workspaceId),
-          eq(lockedPeriods.fiscalPeriodId, entry.fiscalPeriodId),
-          eq(lockedPeriods.month, entryMonth)
-        ),
+      // Check if the fiscal period is locked
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
+        where: eq(fiscalPeriods.id, entry.fiscalPeriodId),
       });
 
-      if (locked) {
+      if (period?.isLocked) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Månaden ${entryMonth} är låst och kan inte ändras`,
+          message: `Räkenskapsåret ${period.label} är låst och kan inte ändras`,
         });
       }
 
@@ -265,20 +265,15 @@ export const journalEntriesRouter = router({
         });
       }
 
-      // Check if the month is locked
-      const entryMonth = entry.entryDate.substring(0, 7);
-      const locked = await ctx.db.query.lockedPeriods.findFirst({
-        where: and(
-          eq(lockedPeriods.workspaceId, ctx.workspaceId),
-          eq(lockedPeriods.fiscalPeriodId, entry.fiscalPeriodId),
-          eq(lockedPeriods.month, entryMonth)
-        ),
+      // Check if the fiscal period is locked
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
+        where: eq(fiscalPeriods.id, entry.fiscalPeriodId),
       });
 
-      if (locked) {
+      if (period?.isLocked) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Månaden ${entryMonth} är låst och kan inte ändras`,
+          message: `Räkenskapsåret ${period.label} är låst och kan inte ändras`,
         });
       }
 

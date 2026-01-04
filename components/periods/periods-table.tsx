@@ -12,26 +12,14 @@ import { Lock, Calendar } from "@phosphor-icons/react/dist/ssr";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale/sv";
 
-interface LockedMonth {
-  id: string;
-  month: string;
-  lockedByUser: {
-    name: string | null;
-    email: string;
-  };
-}
-
 interface Period {
   id: string;
   label: string;
   urlSlug: string;
   startDate: string;
   endDate: string;
-  lockedMonths: LockedMonth[];
-  lockedMonthsCount: number;
-  isPartiallyLocked: boolean;
-  isFullyLocked: boolean;
-  totalMonths: number;
+  isLocked: boolean;
+  lockedAt: Date | null;
 }
 
 interface PeriodsTableProps {
@@ -48,13 +36,12 @@ export function PeriodsTable({ periods, workspaceSlug }: PeriodsTableProps) {
           <TableHead>Startdatum</TableHead>
           <TableHead>Slutdatum</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Låsta månader</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {periods.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5} className="text-center text-muted-foreground">
+            <TableCell colSpan={4} className="text-center text-muted-foreground">
               Inga perioder hittades
             </TableCell>
           </TableRow>
@@ -80,47 +67,25 @@ export function PeriodsTable({ periods, workspaceSlug }: PeriodsTableProps) {
                 })}
               </TableCell>
               <TableCell>
-                {period.isFullyLocked ? (
-                  <Badge variant="destructive" className="gap-1">
-                    <Lock className="size-3" />
-                    Låst
-                  </Badge>
-                ) : period.isPartiallyLocked ? (
-                  <Badge variant="outline" className="gap-1">
-                    <Lock className="size-3" />
-                    Delvis låst
-                  </Badge>
+                {period.isLocked ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive" className="gap-1">
+                      <Lock className="size-3" />
+                      Låst
+                    </Badge>
+                    {period.lockedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(period.lockedAt), "d MMM yyyy", {
+                          locale: sv,
+                        })}
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <Badge variant="secondary" className="gap-1">
                     <Calendar className="size-3" />
                     Öppen
                   </Badge>
-                )}
-              </TableCell>
-              <TableCell>
-                {period.lockedMonthsCount > 0 ? (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm">
-                      {period.lockedMonthsCount} av {period.totalMonths} månader
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {period.lockedMonths.map((locked) => (
-                        <Badge
-                          key={locked.id}
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          {format(new Date(`${locked.month}-01`), "MMM yyyy", {
-                            locale: sv,
-                          })}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    Inga låsta månader
-                  </span>
                 )}
               </TableCell>
             </TableRow>
@@ -130,4 +95,3 @@ export function PeriodsTable({ periods, workspaceSlug }: PeriodsTableProps) {
     </Table>
   );
 }
-

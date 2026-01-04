@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { generateObject } from "ai";
 import { router, workspaceProcedure } from "../init";
 import { bankTransactions, auditLogs, bankAccounts, journalEntries, bankImportBatches } from "@/lib/db/schema";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray, or } from "drizzle-orm";
 import {
   createBankTransactionsSchema,
   updateBankTransactionSchema,
@@ -305,6 +305,128 @@ export const bankTransactionsRouter = router({
       });
 
       return updated;
+    }),
+
+  checkDuplicates: workspaceProcedure
+    .input(
+      z.object({
+        workspaceId: z.string(),
+        transactions: z.array(
+          z.object({
+            rowId: z.string(),
+            accountingDate: z.string(),
+            amount: z.number(),
+          })
+        ),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.transactions.length === 0) {
+        return {};
+      }
+
+      // Build unique date+amount pairs and track which rows map to them
+      const keyToRows = new Map<string, string[]>();
+      for (const tx of input.transactions) {
+        const key = `${tx.accountingDate}|${tx.amount.toFixed(2)}`;
+        const existing = keyToRows.get(key) || [];
+        existing.push(tx.rowId);
+        keyToRows.set(key, existing);
+      }
+
+      // Get unique date+amount pairs for database query
+      const uniquePairs = [...keyToRows.keys()].map((key) => {
+        const [date, amount] = key.split("|");
+        return { date, amount };
+      });
+
+      // Build OR conditions for database query
+      const orConditions = uniquePairs.map((pair) =>
+        and(
+          eq(bankTransactions.accountingDate, pair.date),
+          eq(bankTransactions.amount, pair.amount)
+        )
+      );
+
+      // Query database for existing transactions matching any date+amount pair
+      const existingTransactions = orConditions.length > 0
+        ? await ctx.db.query.bankTransactions.findMany({
+            where: and(
+              eq(bankTransactions.workspaceId, ctx.workspaceId),
+              or(...orConditions)
+            ),
+            columns: {
+              id: true,
+              accountingDate: true,
+              amount: true,
+              reference: true,
+            },
+            limit: 100,
+          })
+        : [];
+
+      // Build result for each input row
+      const results: Record<
+        string,
+        {
+          rowId: string;
+          isDuplicate: boolean;
+          matches: Array<{
+            transactionId: string;
+            accountingDate: string;
+            amount: string;
+            reference: string | null;
+            type: "database" | "batch";
+          }>;
+        }
+      > = {};
+
+      for (const tx of input.transactions) {
+        const key = `${tx.accountingDate}|${tx.amount.toFixed(2)}`;
+        const matches: Array<{
+          transactionId: string;
+          accountingDate: string;
+          amount: string;
+          reference: string | null;
+          type: "database" | "batch";
+        }> = [];
+
+        // Check database matches
+        for (const existing of existingTransactions) {
+          if (
+            existing.accountingDate === tx.accountingDate &&
+            parseFloat(existing.amount!) === tx.amount
+          ) {
+            matches.push({
+              transactionId: existing.id,
+              accountingDate: existing.accountingDate!,
+              amount: existing.amount!,
+              reference: existing.reference,
+              type: "database",
+            });
+          }
+        }
+
+        // Check intra-batch duplicates
+        const batchRows = keyToRows.get(key) || [];
+        if (batchRows.length > 1) {
+          matches.push({
+            transactionId: "",
+            accountingDate: tx.accountingDate,
+            amount: tx.amount.toFixed(2),
+            reference: null,
+            type: "batch",
+          });
+        }
+
+        results[tx.rowId] = {
+          rowId: tx.rowId,
+          isDuplicate: matches.length > 0,
+          matches,
+        };
+      }
+
+      return results;
     }),
 
   analyzeContent: workspaceProcedure

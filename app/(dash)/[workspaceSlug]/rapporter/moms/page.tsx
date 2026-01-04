@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { workspaces, workspaceMembers, fiscalPeriods } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import {
   Breadcrumb,
@@ -14,16 +14,18 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { PeriodsTable } from "@/components/periods/periods-table";
+import { VatReportClient } from "./vat-report-client";
 
 export const metadata: Metadata = {
-  title: "Perioder — Kvitty",
+  title: "Momsrapport - Kvitty",
 };
 
-export default async function PeriodsPage({
+export default async function VatReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>;
+  searchParams: Promise<{ period?: string; vatPeriod?: string }>;
 }) {
   const session = await getSession();
   if (!session) {
@@ -31,6 +33,7 @@ export default async function PeriodsPage({
   }
 
   const { workspaceSlug } = await params;
+  const { period: periodId, vatPeriod } = await searchParams;
 
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, workspaceSlug),
@@ -51,10 +54,13 @@ export default async function PeriodsPage({
     redirect("/app");
   }
 
-  const allPeriods = await db.query.fiscalPeriods.findMany({
+  const periods = await db.query.fiscalPeriods.findMany({
     where: eq(fiscalPeriods.workspaceId, workspace.id),
-    orderBy: (periods, { desc }) => [desc(periods.startDate)],
+    orderBy: [desc(fiscalPeriods.startDate)],
   });
+
+  const selectedPeriodId = periodId || periods[0]?.id;
+  const selectedVatPeriodIndex = vatPeriod ? parseInt(vatPeriod, 10) : 0;
 
   return (
     <>
@@ -74,7 +80,13 @@ export default async function PeriodsPage({
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Perioder</BreadcrumbPage>
+                <BreadcrumbLink href={`/${workspaceSlug}/rapporter/moms`}>
+                  Rapporter
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Momsrapport</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -82,26 +94,35 @@ export default async function PeriodsPage({
       </header>
       <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
         <div>
-          <h1 className="text-2xl font-bold">Perioder</h1>
+          <h1 className="text-2xl font-bold">Momsrapport</h1>
           <p className="text-muted-foreground text-sm">
-            Alla räkenskapsperioder för detta arbetsområde
+            Översikt över moms att deklarera och betala
           </p>
         </div>
 
-        <div className="rounded-lg border">
-          <PeriodsTable
-            periods={allPeriods.map((period) => ({
-              id: period.id,
-              label: period.label,
-              urlSlug: period.urlSlug,
-              startDate: period.startDate,
-              endDate: period.endDate,
-              isLocked: period.isLocked,
-              lockedAt: period.lockedAt,
+        {periods.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>Inga räkenskapsperioder finns.</p>
+            <p className="text-sm mt-1">
+              Skapa en period för att se momsrapporten.
+            </p>
+          </div>
+        ) : (
+          <VatReportClient
+            workspaceId={workspace.id}
+            periods={periods.map((p) => ({
+              id: p.id,
+              label: p.label,
+              startDate: p.startDate,
+              endDate: p.endDate,
+              isLocked: p.isLocked,
             }))}
+            selectedPeriodId={selectedPeriodId}
+            selectedVatPeriodIndex={selectedVatPeriodIndex}
             workspaceSlug={workspaceSlug}
+            vatReportingFrequency={workspace.vatReportingFrequency || "quarterly"}
           />
-        </div>
+        )}
       </div>
     </>
   );

@@ -73,6 +73,25 @@ export const periodsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Check if period exists and is not locked
+      const existing = await ctx.db.query.fiscalPeriods.findFirst({
+        where: and(
+          eq(fiscalPeriods.id, input.periodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Period hittades inte" });
+      }
+
+      if (existing.isLocked) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kan inte ändra en låst period",
+        });
+      }
+
       const [updated] = await ctx.db
         .update(fiscalPeriods)
         .set({
@@ -85,13 +104,17 @@ export const periodsRouter = router({
         .where(
           and(
             eq(fiscalPeriods.id, input.periodId),
-            eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+            eq(fiscalPeriods.workspaceId, ctx.workspaceId),
+            eq(fiscalPeriods.isLocked, false)
           )
         )
         .returning();
 
       if (!updated) {
-        throw new TRPCError({ code: "NOT_FOUND" });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Perioden låstes, vänligen uppdatera",
+        });
       }
 
       return updated;
@@ -100,15 +123,105 @@ export const periodsRouter = router({
   delete: workspaceProcedure
     .input(z.object({ workspaceId: z.string(), periodId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Check if period exists and is not locked
+      const existing = await ctx.db.query.fiscalPeriods.findFirst({
+        where: and(
+          eq(fiscalPeriods.id, input.periodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Period hittades inte" });
+      }
+
+      if (existing.isLocked) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kan inte radera en låst period",
+        });
+      }
+
       await ctx.db
         .delete(fiscalPeriods)
         .where(
           and(
             eq(fiscalPeriods.id, input.periodId),
-            eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+            eq(fiscalPeriods.workspaceId, ctx.workspaceId),
+            eq(fiscalPeriods.isLocked, false)
           )
         );
 
       return { success: true };
+    }),
+
+  lock: workspaceProcedure
+    .input(z.object({ periodId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
+        where: and(
+          eq(fiscalPeriods.id, input.periodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!period) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (period.isLocked) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Räkenskapsåret är redan låst",
+        });
+      }
+
+      const [updated] = await ctx.db
+        .update(fiscalPeriods)
+        .set({
+          isLocked: true,
+          lockedAt: new Date(),
+          lockedBy: ctx.session.user.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(fiscalPeriods.id, input.periodId))
+        .returning();
+
+      return updated;
+    }),
+
+  unlock: workspaceProcedure
+    .input(z.object({ periodId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
+        where: and(
+          eq(fiscalPeriods.id, input.periodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!period) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (!period.isLocked) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Räkenskapsåret är inte låst",
+        });
+      }
+
+      const [updated] = await ctx.db
+        .update(fiscalPeriods)
+        .set({
+          isLocked: false,
+          lockedAt: null,
+          lockedBy: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(fiscalPeriods.id, input.periodId))
+        .returning();
+
+      return updated;
     }),
 });

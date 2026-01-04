@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash } from "@phosphor-icons/react";
+import { Plus, Trash, Warning } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -19,6 +19,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { trpc } from "@/lib/trpc/client";
 import { createCuid } from "@/lib/utils/cuid";
+import { useDuplicateCheck } from "@/hooks/use-duplicate-check";
+import { DuplicateBadge } from "./duplicate-badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface AddBankTransactionDialogProps {
   workspaceId: string;
@@ -83,6 +86,20 @@ export function AddBankTransactionDialog({
       toast.error(error.message);
     },
   });
+
+  const { duplicateMap } = useDuplicateCheck(
+    workspaceId,
+    rows.map((row) => ({
+      id: row.id,
+      accountingDate: row.accountingDate,
+      amount: row.amount,
+    })),
+    open
+  );
+
+  const duplicateCount = [...duplicateMap.values()].filter(
+    (d) => d.isDuplicate
+  ).length;
 
   function updateRow(id: string, field: keyof BankTransactionRow, value: string) {
     setRows((prev) =>
@@ -149,18 +166,19 @@ export function AddBankTransactionDialog({
 
           <TabsContent value="manual" className="flex-1 overflow-auto">
             <div className="space-y-2">
-              <div className="grid grid-cols-[100px_150px_1fr_140px_40px] gap-2 text-xs font-medium text-muted-foreground sticky top-0 bg-background py-2">
+              <div className="grid grid-cols-[100px_150px_1fr_140px_80px_40px] gap-2 text-xs font-medium text-muted-foreground sticky top-0 bg-background py-2">
                 <div>Konto</div>
                 <div>Bokföringsdag</div>
                 <div>Referens</div>
                 <div>Belopp</div>
+                <div className="text-center">Status</div>
                 <div></div>
               </div>
 
               {rows.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[100px_150px_1fr_140px_40px] gap-2"
+                  className="grid grid-cols-[100px_150px_1fr_140px_80px_40px] gap-2"
                 >
                   <Input
                     placeholder="6886"
@@ -190,6 +208,13 @@ export function AddBankTransactionDialog({
                     onChange={(e) => updateRow(row.id, "amount", e.target.value)}
                     className="h-8 text-sm"
                   />
+                  <div className="flex items-center justify-center h-8">
+                    {duplicateMap.get(row.id)?.isDuplicate && (
+                      <DuplicateBadge
+                        matches={duplicateMap.get(row.id)!.matches}
+                      />
+                    )}
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -240,7 +265,7 @@ AI:n analyserar innehållet och extraherar transaktioner automatiskt."
             </Button>
             {rows.length > 1 && !analyzeContent.isPending && (
               <p className="text-sm text-muted-foreground">
-                {rows.length} rader redo att läggas till. Granska i fliken "Manuell inmatning".
+                {rows.length} rader redo att läggas till. Granska i fliken &quot;Manuell inmatning&quot;.
               </p>
             )}
           </TabsContent>
@@ -250,6 +275,19 @@ AI:n analyserar innehållet och extraherar transaktioner automatiskt."
           <p className="text-sm text-red-500">
             {createBankTransactions.error.message}
           </p>
+        )}
+
+        {duplicateCount > 0 && (
+          <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+            <Warning className="size-4 text-amber-600 dark:text-amber-400" />
+            <AlertTitle className="text-amber-800 dark:text-amber-200">
+              {duplicateCount} möjliga dubbletter hittades
+            </AlertTitle>
+            <AlertDescription className="text-amber-700 dark:text-amber-300">
+              Vissa transaktioner kan redan finnas i systemet. Granska raderna
+              markerade med varningssymbol.
+            </AlertDescription>
+          </Alert>
         )}
 
         <div className="flex justify-end gap-2 pt-4 border-t">

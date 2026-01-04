@@ -94,6 +94,23 @@ export const productTypeEnum = pgEnum("product_type", ["V", "T"]); // V=Varor, T
 
 export const invoiceLineTypeEnum = pgEnum("invoice_line_type", ["product", "text"]);
 
+export const vatReportingFrequencyEnum = pgEnum("vat_reporting_frequency", [
+  "monthly",
+  "quarterly",
+  "yearly",
+]);
+
+export const annualClosingStatusEnum = pgEnum("annual_closing_status", [
+  "not_started",
+  "reconciliation_complete",
+  "package_selected",
+  "closing_entries_created",
+  "tax_calculated",
+  "finalized",
+]);
+
+export const closingPackageEnum = pgEnum("closing_package", ["k1", "k2", "k3"]);
+
 export const bankTransactionStatusEnum = pgEnum("bank_transaction_status", [
   "pending",
   "matched",
@@ -190,6 +207,7 @@ export const workspaces = pgTable("workspaces", {
   swishNumber: text("swish_number"), // For Swish payments
   paymentTermsDays: integer("payment_terms_days").default(30),
   invoiceNotes: text("invoice_notes"), // Default footer text for invoices
+  vatReportingFrequency: vatReportingFrequencyEnum("vat_reporting_frequency").default("quarterly"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by").references(() => user.id),
@@ -238,11 +256,44 @@ export const fiscalPeriods = pgTable(
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
     fiscalYearType: fiscalYearTypeEnum("fiscal_year_type").default("calendar").notNull(),
+    isLocked: boolean("is_locked").default(false).notNull(),
+    lockedAt: timestamp("locked_at"),
+    lockedBy: text("locked_by").references(() => user.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [unique().on(table.workspaceId, table.urlSlug)]
 );
+
+// Annual closings for tracking bokslut process
+export const annualClosings = pgTable("annual_closings", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  fiscalPeriodId: text("fiscal_period_id")
+    .notNull()
+    .references(() => fiscalPeriods.id, { onDelete: "cascade" }),
+  status: annualClosingStatusEnum("status").default("not_started").notNull(),
+  closingPackage: closingPackageEnum("closing_package"),
+  // Step completion tracking
+  reconciliationCompletedAt: timestamp("reconciliation_completed_at"),
+  reconciliationCompletedBy: text("reconciliation_completed_by").references(() => user.id),
+  packageSelectedAt: timestamp("package_selected_at"),
+  closingEntriesCreatedAt: timestamp("closing_entries_created_at"),
+  taxCalculatedAt: timestamp("tax_calculated_at"),
+  // Financial results
+  calculatedProfit: decimal("calculated_profit", { precision: 15, scale: 2 }),
+  calculatedTax: decimal("calculated_tax", { precision: 15, scale: 2 }),
+  taxJournalEntryId: text("tax_journal_entry_id"),
+  // Finalization
+  finalizedAt: timestamp("finalized_at"),
+  finalizedBy: text("finalized_by").references(() => user.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  unique().on(table.workspaceId, table.fiscalPeriodId)
+]);
 
 // Bank import batches for tracking import history
 export const bankImportBatches = pgTable("bank_import_batches", {
@@ -505,27 +556,6 @@ export const salaryStatements = pgTable("salary_statements", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Locked periods/months
-export const lockedPeriods = pgTable(
-  "locked_periods",
-  {
-    id: text("id").primaryKey().$defaultFn(() => createCuid()),
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => workspaces.id, { onDelete: "cascade" }),
-    fiscalPeriodId: text("fiscal_period_id")
-      .notNull()
-      .references(() => fiscalPeriods.id, { onDelete: "cascade" }),
-    month: text("month").notNull(), // Format: YYYY-MM
-    lockedAt: timestamp("locked_at").defaultNow().notNull(),
-    lockedBy: text("locked_by")
-      .notNull()
-      .references(() => user.id),
-    reason: text("reason"),
-  },
-  (table) => [unique().on(table.workspaceId, table.fiscalPeriodId, table.month)]
-);
-
 // ============================================
 // Customers & Invoices
 // ============================================
@@ -644,7 +674,6 @@ export const userRelations = relations(user, ({ many }) => ({
   auditLogs: many(auditLogs),
   journalEntries: many(journalEntries),
   payrollRuns: many(payrollRuns),
-  lockedPeriods: many(lockedPeriods),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -676,7 +705,6 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   journalEntries: many(journalEntries),
   employees: many(employees),
   payrollRuns: many(payrollRuns),
-  lockedPeriods: many(lockedPeriods),
   customers: many(customers),
   products: many(products),
   invoices: many(invoices),
@@ -722,7 +750,33 @@ export const fiscalPeriodsRelations = relations(
       references: [workspaces.id],
     }),
     journalEntries: many(journalEntries),
-    lockedPeriods: many(lockedPeriods),
+    annualClosing: one(annualClosings),
+    lockedByUser: one(user, {
+      fields: [fiscalPeriods.lockedBy],
+      references: [user.id],
+    }),
+  })
+);
+
+export const annualClosingsRelations = relations(
+  annualClosings,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [annualClosings.workspaceId],
+      references: [workspaces.id],
+    }),
+    fiscalPeriod: one(fiscalPeriods, {
+      fields: [annualClosings.fiscalPeriodId],
+      references: [fiscalPeriods.id],
+    }),
+    reconciliationUser: one(user, {
+      fields: [annualClosings.reconciliationCompletedBy],
+      references: [user.id],
+    }),
+    finalizedByUser: one(user, {
+      fields: [annualClosings.finalizedBy],
+      references: [user.id],
+    }),
   })
 );
 
@@ -921,21 +975,6 @@ export const salaryStatementsRelations = relations(salaryStatements, ({ one }) =
   }),
 }));
 
-export const lockedPeriodsRelations = relations(lockedPeriods, ({ one }) => ({
-  workspace: one(workspaces, {
-    fields: [lockedPeriods.workspaceId],
-    references: [workspaces.id],
-  }),
-  fiscalPeriod: one(fiscalPeriods, {
-    fields: [lockedPeriods.fiscalPeriodId],
-    references: [fiscalPeriods.id],
-  }),
-  lockedByUser: one(user, {
-    fields: [lockedPeriods.lockedBy],
-    references: [user.id],
-  }),
-}));
-
 export const customersRelations = relations(customers, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [customers.workspaceId],
@@ -1024,9 +1063,6 @@ export type PayrollRunStatus = (typeof payrollRunStatusEnum.enumValues)[number];
 export type PayrollEntry = typeof payrollEntries.$inferSelect;
 export type NewPayrollEntry = typeof payrollEntries.$inferInsert;
 
-export type LockedPeriod = typeof lockedPeriods.$inferSelect;
-export type NewLockedPeriod = typeof lockedPeriods.$inferInsert;
-
 export type FiscalYearType = (typeof fiscalYearTypeEnum.enumValues)[number];
 
 export type Customer = typeof customers.$inferSelect;
@@ -1060,3 +1096,8 @@ export type InvoiceOpenLog = typeof invoiceOpenLogs.$inferSelect;
 export type NewInvoiceOpenLog = typeof invoiceOpenLogs.$inferInsert;
 
 export type InvoiceSentMethod = (typeof invoiceSentMethodEnum.enumValues)[number];
+
+export type AnnualClosing = typeof annualClosings.$inferSelect;
+export type NewAnnualClosing = typeof annualClosings.$inferInsert;
+export type AnnualClosingStatus = (typeof annualClosingStatusEnum.enumValues)[number];
+export type ClosingPackage = (typeof closingPackageEnum.enumValues)[number];
