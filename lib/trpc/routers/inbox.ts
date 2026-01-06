@@ -6,7 +6,7 @@ import {
   journalEntries,
   bankTransactions,
 } from "@/lib/db/schema";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, count } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -25,26 +25,37 @@ export const inboxRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const emails = await ctx.db.query.inboxEmails.findMany({
-        where: and(
-          eq(inboxEmails.workspaceId, ctx.workspaceId),
-          input.status !== "all"
-            ? eq(inboxEmails.status, input.status)
-            : undefined
-        ),
-        with: {
-          attachments: {
-            with: {
-              links: true,
+      const whereClause = and(
+        eq(inboxEmails.workspaceId, ctx.workspaceId),
+        input.status !== "all"
+          ? eq(inboxEmails.status, input.status)
+          : undefined
+      );
+
+      const [emails, totalResult] = await Promise.all([
+        ctx.db.query.inboxEmails.findMany({
+          where: whereClause,
+          with: {
+            attachments: {
+              with: {
+                links: true,
+              },
             },
           },
-        },
-        orderBy: [desc(inboxEmails.receivedAt)],
-        limit: input.limit,
-        offset: input.offset,
-      });
+          orderBy: [desc(inboxEmails.receivedAt)],
+          limit: input.limit,
+          offset: input.offset,
+        }),
+        ctx.db
+          .select({ count: count() })
+          .from(inboxEmails)
+          .where(whereClause),
+      ]);
 
-      return emails;
+      return {
+        emails,
+        total: totalResult[0]?.count ?? 0,
+      };
     }),
 
   // Get unlinked attachments for the linking UI

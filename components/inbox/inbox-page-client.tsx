@@ -26,14 +26,29 @@ const statusLabels: Record<StatusFilter, string> = {
   error: "Fel",
 };
 
+const PAGE_SIZE = 20;
+
 export function InboxPageClient() {
   const { workspace } = useWorkspace();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [page, setPage] = useState(1);
 
-  const { data: emails, isLoading, error, refetch } = trpc.inbox.list.useQuery({
+  const { data, isLoading, error, refetch } = trpc.inbox.list.useQuery({
     workspaceId: workspace.id,
     status: statusFilter,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
   });
+
+  const emails = data?.emails;
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // Reset to page 1 when filter changes
+  const handleFilterChange = (value: StatusFilter) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const inboxEmail = workspace.inboxEmailSlug
     ? `${workspace.inboxEmailSlug}.${workspace.slug}@inbox.kvitty.se`
@@ -68,7 +83,7 @@ export function InboxPageClient() {
           <FunnelSimple className="size-4 text-muted-foreground" />
           <Select
             value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+            onValueChange={(value) => handleFilterChange(value as StatusFilter)}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue>{statusLabels[statusFilter]}</SelectValue>
@@ -137,6 +152,10 @@ export function InboxPageClient() {
           workspaceId={workspace.id}
           workspaceMode={workspace.mode}
           hasFilters={statusFilter !== "all"}
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={setPage}
         />
       ) : null}
     </div>
