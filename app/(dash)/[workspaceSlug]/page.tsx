@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { workspaces, fiscalPeriods, bankTransactions, journalEntries, auditLogs } from "@/lib/db/schema";
+import { workspaces, fiscalPeriods, bankTransactions, journalEntries, attachments, auditLogs } from "@/lib/db/schema";
 import { eq, count, sql, and, gte } from "drizzle-orm";
 import {
   Breadcrumb,
@@ -16,6 +16,9 @@ import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { PeriodsList } from "@/components/dashboard/periods-list";
 import { AGIDeadlinesWidget } from "@/components/dashboard/agi-deadlines-widget";
 import { OverdueInvoicesWidget } from "@/components/dashboard/overdue-invoices-widget";
+import { SimpleDashboardMetrics } from "@/components/dashboard/simple-dashboard-metrics";
+import { SimpleVerificationChart } from "@/components/dashboard/simple-verification-chart";
+import { SimpleActivityFeed } from "@/components/dashboard/simple-activity-feed";
 
 export async function generateMetadata({
   params,
@@ -51,13 +54,175 @@ export default async function WorkspaceDashboardPage({
   const todayStr = today.toISOString().split("T")[0];
   const currentYearStart = `${today.getFullYear()}-01-01`;
 
+  // Fetch periods for both modes
+  const periods = await db.query.fiscalPeriods.findMany({
+    where: eq(fiscalPeriods.workspaceId, workspace.id),
+    orderBy: (periods, { desc }) => [desc(periods.startDate)],
+  });
+
+  // Get current period based on today's date
+  const currentPeriod = periods.find(
+    (p) => p.startDate <= todayStr && p.endDate >= todayStr
+  );
+
+  // Simple mode dashboard
+  if (workspace.mode === "simple") {
+    const statsDateFrom = currentPeriod?.startDate || currentYearStart;
+
+    // Fetch simple mode data in parallel
+    const [
+      totalTransactions,
+      periodTransactions,
+      totalAttachments,
+      recentTransactions,
+      periodStats,
+      monthlyTransactions,
+    ] = await Promise.all([
+      // Total bank transactions count
+      db
+        .select({ count: count() })
+        .from(bankTransactions)
+        .where(eq(bankTransactions.workspaceId, workspace.id))
+        .then(([r]) => r?.count || 0),
+      // Current period transactions (based on accounting date within period)
+      currentPeriod
+        ? db
+            .select({ count: count() })
+            .from(bankTransactions)
+            .where(
+              and(
+                eq(bankTransactions.workspaceId, workspace.id),
+                gte(bankTransactions.accountingDate, currentPeriod.startDate),
+                sql`${bankTransactions.accountingDate} <= ${currentPeriod.endDate}`
+              )
+            )
+            .then(([r]) => r?.count || 0)
+        : Promise.resolve(0),
+      // Total attachments count
+      db
+        .select({ count: count() })
+        .from(attachments)
+        .innerJoin(bankTransactions, eq(attachments.bankTransactionId, bankTransactions.id))
+        .where(eq(bankTransactions.workspaceId, workspace.id))
+        .then(([r]) => r?.count || 0),
+      // Recent transactions with attachment counts
+      db.query.bankTransactions.findMany({
+        where: eq(bankTransactions.workspaceId, workspace.id),
+        orderBy: (txns, { desc }) => [desc(txns.createdAt)],
+        limit: 8,
+        with: {
+          createdByUser: { columns: { id: true, name: true, email: true } },
+          attachments: { columns: { id: true } },
+        },
+      }),
+      // Period stats with transaction counts
+      Promise.all(
+        periods.map(async (period) => {
+          const [result] = await db
+            .select({ count: count() })
+            .from(bankTransactions)
+            .where(
+              and(
+                eq(bankTransactions.workspaceId, workspace.id),
+                gte(bankTransactions.accountingDate, period.startDate),
+                sql`${bankTransactions.accountingDate} <= ${period.endDate}`
+              )
+            );
+          return {
+            ...period,
+            verificationCount: result?.count || 0,
+          };
+        })
+      ),
+      // Monthly transaction counts for chart
+      db
+        .select({
+          month: sql<string>`TO_CHAR(${bankTransactions.accountingDate}, 'Mon')`,
+          monthNum: sql<string>`TO_CHAR(${bankTransactions.accountingDate}, 'MM')`,
+          count: count(),
+        })
+        .from(bankTransactions)
+        .where(
+          and(
+            eq(bankTransactions.workspaceId, workspace.id),
+            gte(bankTransactions.accountingDate, statsDateFrom)
+          )
+        )
+        .groupBy(
+          sql`TO_CHAR(${bankTransactions.accountingDate}, 'Mon')`,
+          sql`TO_CHAR(${bankTransactions.accountingDate}, 'MM')`
+        )
+        .orderBy(sql`TO_CHAR(${bankTransactions.accountingDate}, 'MM')`),
+    ]);
+
+    const simpleChartData = monthlyTransactions.map((d) => ({
+      month: d.month,
+      count: Number(d.count),
+    }));
+
+    const simpleActivityItems = recentTransactions.map((t) => ({
+      id: t.id,
+      reference: t.reference,
+      amount: t.amount,
+      accountingDate: t.accountingDate,
+      attachmentCount: t.attachments?.length || 0,
+      createdByName: t.createdByUser?.name || t.createdByUser?.email,
+      createdAt: t.createdAt,
+    }));
+
+    return (
+      <>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4 mt-1.5"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{workspace.name}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+
+        <div className="flex flex-1 flex-col gap-8 p-6 pt-0">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{workspace.name}</h1>
+            <p className="text-muted-foreground text-sm">Översikt</p>
+          </div>
+
+          {/* Metrics Row */}
+          <SimpleDashboardMetrics
+            totalTransactions={totalTransactions}
+            periodTransactions={periodTransactions}
+            totalAttachments={totalAttachments}
+            periodLabel={currentPeriod?.label}
+          />
+
+          {/* Chart */}
+          <SimpleVerificationChart data={simpleChartData} />
+
+          {/* Two Column: Activity + Periods */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <SimpleActivityFeed items={simpleActivityItems} workspaceSlug={workspaceSlug} />
+            <PeriodsList
+              periods={periodStats}
+              workspaceSlug={workspaceSlug}
+              currentPeriodId={currentPeriod?.id}
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Full bookkeeping mode dashboard (existing implementation)
   // Fetch all data in parallel
-  const [periods, recentBankTransactions, recentAuditLogs, periodStats] = await Promise.all([
-    // Periods
-    db.query.fiscalPeriods.findMany({
-      where: eq(fiscalPeriods.workspaceId, workspace.id),
-      orderBy: (periods, { desc }) => [desc(periods.startDate)],
-    }),
+  const [recentBankTransactions, recentAuditLogs, periodStats] = await Promise.all([
     // Recent bank transactions (company-wide, no period filter)
     db.query.bankTransactions.findMany({
       where: eq(bankTransactions.workspaceId, workspace.id),
@@ -78,33 +243,22 @@ export default async function WorkspaceDashboardPage({
       },
     }),
     // Get journal entry counts per period (journal entries are still period-based)
-    db.query.fiscalPeriods.findMany({
-      where: eq(fiscalPeriods.workspaceId, workspace.id),
-      orderBy: (periods, { desc }) => [desc(periods.startDate)],
-    }).then(async (periods) => {
-      return Promise.all(
-        periods.map(async (period) => {
-          const [result] = await db
-            .select({ count: count() })
-            .from(journalEntries)
-            .where(eq(journalEntries.fiscalPeriodId, period.id));
-          return {
-            ...period,
-            verificationCount: result?.count || 0,
-          };
-        })
-      );
-    }),
+    Promise.all(
+      periods.map(async (period) => {
+        const [result] = await db
+          .select({ count: count() })
+          .from(journalEntries)
+          .where(eq(journalEntries.fiscalPeriodId, period.id));
+        return {
+          ...period,
+          verificationCount: result?.count || 0,
+        };
+      })
+    ),
   ]);
-
-  // Get current period based on today's date
-  const currentPeriod = periods.find(
-    (p) => p.startDate <= todayStr && p.endDate >= todayStr
-  );
 
   // Use current period date range if available, otherwise current year
   const statsDateFrom = currentPeriod?.startDate || currentYearStart;
-  const statsDateTo = currentPeriod?.endDate || todayStr;
 
   // Calculate aggregate stats for the workspace
   const [aggregates] = await db
