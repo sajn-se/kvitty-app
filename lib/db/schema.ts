@@ -124,6 +124,13 @@ export const bankImportBatchStatusEnum = pgEnum("bank_import_batch_status", [
   "completed",
   "failed",
 ]);
+
+export const inboxEmailStatusEnum = pgEnum("inbox_email_status", [
+  "pending",
+  "processed",
+  "rejected",
+  "error",
+]);
 import { relations } from "drizzle-orm";
 
 // ============================================
@@ -214,6 +221,8 @@ export const workspaces = pgTable("workspaces", {
   defaultPaymentMethod: text("default_payment_method"), // Default: "bankgiro" | "plusgiro" | "iban" | "swish" | "paypal" | "custom"
   addOcrNumber: boolean("add_ocr_number").default(false), // Auto-generate OCR numbers
   vatReportingFrequency: vatReportingFrequencyEnum("vat_reporting_frequency").default("quarterly"),
+  // Email inbox settings
+  inboxEmailSlug: text("inbox_email_slug").unique(), // e.g., "sajn.ys72" → sajn.ys72@kvitty.se
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by").references(() => user.id),
@@ -249,6 +258,82 @@ export const workspaceInvites = pgTable("workspace_invites", {
   usedAt: timestamp("used_at"),
   usedBy: text("used_by").references(() => user.id),
 });
+
+// Allowed sender email addresses per user per workspace
+export const workspaceAllowedEmails = pgTable(
+  "workspace_allowed_emails",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createCuid()),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [unique().on(table.workspaceId, table.userId, table.email)]
+);
+
+// Incoming emails to workspace inbox
+export const inboxEmails = pgTable("inbox_emails", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  fromEmail: text("from_email").notNull(),
+  subject: text("subject"),
+  receivedAt: timestamp("received_at").notNull(),
+  processedAt: timestamp("processed_at"),
+  status: inboxEmailStatusEnum("status").default("pending").notNull(),
+  rawMessageId: text("raw_message_id"), // For idempotency
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Attachments from inbox emails
+export const inboxAttachments = pgTable("inbox_attachments", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  inboxEmailId: text("inbox_email_id")
+    .notNull()
+    .references(() => inboxEmails.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Junction table for many-to-many linking of inbox attachments to transactions
+export const inboxAttachmentLinks = pgTable(
+  "inbox_attachment_links",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createCuid()),
+    inboxAttachmentId: text("inbox_attachment_id")
+      .notNull()
+      .references(() => inboxAttachments.id, { onDelete: "cascade" }),
+    // For full_bookkeeping mode:
+    journalEntryId: text("journal_entry_id")
+      .references(() => journalEntries.id, { onDelete: "cascade" }),
+    // For simple mode:
+    bankTransactionId: text("bank_transaction_id")
+      .references(() => bankTransactions.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => [
+    // Prevent duplicate links: same attachment to same journal entry
+    unique("inbox_attachment_journal_link").on(table.inboxAttachmentId, table.journalEntryId),
+    // Prevent duplicate links: same attachment to same bank transaction
+    unique("inbox_attachment_bank_link").on(table.inboxAttachmentId, table.bankTransactionId),
+  ]
+);
 
 export const fiscalPeriods = pgTable(
   "fiscal_periods",
@@ -692,6 +777,8 @@ export const userRelations = relations(user, ({ many }) => ({
   auditLogs: many(auditLogs),
   journalEntries: many(journalEntries),
   payrollRuns: many(payrollRuns),
+  workspaceAllowedEmails: many(workspaceAllowedEmails),
+  inboxAttachmentLinks: many(inboxAttachmentLinks),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -726,6 +813,10 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   customers: many(customers),
   products: many(products),
   invoices: many(invoices),
+  // Email inbox relations
+  allowedEmails: many(workspaceAllowedEmails),
+  inboxEmails: many(inboxEmails),
+  inboxAttachments: many(inboxAttachments),
 }));
 
 export const workspaceMembersRelations = relations(
@@ -755,6 +846,68 @@ export const workspaceInvitesRelations = relations(
     }),
     usedByUser: one(user, {
       fields: [workspaceInvites.usedBy],
+      references: [user.id],
+    }),
+  })
+);
+
+export const workspaceAllowedEmailsRelations = relations(
+  workspaceAllowedEmails,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceAllowedEmails.workspaceId],
+      references: [workspaces.id],
+    }),
+    user: one(user, {
+      fields: [workspaceAllowedEmails.userId],
+      references: [user.id],
+    }),
+  })
+);
+
+export const inboxEmailsRelations = relations(
+  inboxEmails,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [inboxEmails.workspaceId],
+      references: [workspaces.id],
+    }),
+    attachments: many(inboxAttachments),
+  })
+);
+
+export const inboxAttachmentsRelations = relations(
+  inboxAttachments,
+  ({ one, many }) => ({
+    inboxEmail: one(inboxEmails, {
+      fields: [inboxAttachments.inboxEmailId],
+      references: [inboxEmails.id],
+    }),
+    workspace: one(workspaces, {
+      fields: [inboxAttachments.workspaceId],
+      references: [workspaces.id],
+    }),
+    links: many(inboxAttachmentLinks),
+  })
+);
+
+export const inboxAttachmentLinksRelations = relations(
+  inboxAttachmentLinks,
+  ({ one }) => ({
+    inboxAttachment: one(inboxAttachments, {
+      fields: [inboxAttachmentLinks.inboxAttachmentId],
+      references: [inboxAttachments.id],
+    }),
+    journalEntry: one(journalEntries, {
+      fields: [inboxAttachmentLinks.journalEntryId],
+      references: [journalEntries.id],
+    }),
+    bankTransaction: one(bankTransactions, {
+      fields: [inboxAttachmentLinks.bankTransactionId],
+      references: [bankTransactions.id],
+    }),
+    createdByUser: one(user, {
+      fields: [inboxAttachmentLinks.createdBy],
       references: [user.id],
     }),
   })
@@ -842,6 +995,7 @@ export const bankTransactionsRelations = relations(
     }),
     attachments: many(attachments),
     comments: many(comments),
+    inboxAttachmentLinks: many(inboxAttachmentLinks),
   })
 );
 
@@ -908,6 +1062,7 @@ export const journalEntriesRelations = relations(
     }),
     lines: many(journalEntryLines),
     mappedBankTransactions: many(bankTransactions),
+    inboxAttachmentLinks: many(inboxAttachmentLinks),
   })
 );
 
@@ -1119,3 +1274,16 @@ export type AnnualClosing = typeof annualClosings.$inferSelect;
 export type NewAnnualClosing = typeof annualClosings.$inferInsert;
 export type AnnualClosingStatus = (typeof annualClosingStatusEnum.enumValues)[number];
 export type ClosingPackage = (typeof closingPackageEnum.enumValues)[number];
+
+export type WorkspaceAllowedEmail = typeof workspaceAllowedEmails.$inferSelect;
+export type NewWorkspaceAllowedEmail = typeof workspaceAllowedEmails.$inferInsert;
+
+export type InboxEmail = typeof inboxEmails.$inferSelect;
+export type NewInboxEmail = typeof inboxEmails.$inferInsert;
+export type InboxEmailStatus = (typeof inboxEmailStatusEnum.enumValues)[number];
+
+export type InboxAttachment = typeof inboxAttachments.$inferSelect;
+export type NewInboxAttachment = typeof inboxAttachments.$inferInsert;
+
+export type InboxAttachmentLink = typeof inboxAttachmentLinks.$inferSelect;
+export type NewInboxAttachmentLink = typeof inboxAttachmentLinks.$inferInsert;

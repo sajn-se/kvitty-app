@@ -361,6 +361,7 @@ export function TransactionsPageClient({
             <BankTransactionsTable
               data={filteredTransactions}
               workspaceId={workspace.id}
+              workspaceSlug={workspaceSlug}
               hasFilters={!!hasFilters}
               initialSelectedId={pendingSelectedId}
               onSelectedIdHandled={() => {

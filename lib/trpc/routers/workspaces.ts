@@ -86,6 +86,23 @@ export const workspacesRouter = router({
         }
       }
 
+      // If inboxEmailSlug is being updated, check for uniqueness
+      if (input.inboxEmailSlug) {
+        const existingInbox = await ctx.db.query.workspaces.findFirst({
+          where: and(
+            eq(workspaces.inboxEmailSlug, input.inboxEmailSlug),
+            ne(workspaces.id, ctx.workspaceId)
+          ),
+        });
+
+        if (existingInbox) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Denna e-postadress används redan av en annan arbetsyta",
+          });
+        }
+      }
+
       const [updated] = await ctx.db
         .update(workspaces)
         .set({
@@ -109,6 +126,15 @@ export const workspacesRouter = router({
           ...(input.swishNumber !== undefined && { swishNumber: input.swishNumber || null }),
           ...(input.paymentTermsDays !== undefined && { paymentTermsDays: input.paymentTermsDays }),
           ...(input.invoiceNotes !== undefined && { invoiceNotes: input.invoiceNotes || null }),
+          // Invoice defaults
+          ...(input.deliveryTerms !== undefined && { deliveryTerms: input.deliveryTerms || null }),
+          ...(input.latePaymentInterest !== undefined && {
+            latePaymentInterest: input.latePaymentInterest?.toString() ?? null,
+          }),
+          ...(input.defaultPaymentMethod !== undefined && { defaultPaymentMethod: input.defaultPaymentMethod || null }),
+          ...(input.addOcrNumber !== undefined && { addOcrNumber: input.addOcrNumber }),
+          // Email inbox settings
+          ...(input.inboxEmailSlug !== undefined && { inboxEmailSlug: input.inboxEmailSlug || null }),
           updatedAt: new Date(),
         })
         .where(eq(workspaces.id, ctx.workspaceId))

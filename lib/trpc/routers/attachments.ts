@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, workspaceProcedure } from "../init";
 import { attachments, bankTransactions, auditLogs } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { put, del } from "@vercel/blob";
+import { deleteFromS3 } from "@/lib/utils/s3";
 
 export const attachmentsRouter = router({
   list: workspaceProcedure
@@ -103,11 +103,11 @@ export const attachmentsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      // Delete from Vercel Blob
+      // Delete from S3
       try {
-        await del(attachment.fileUrl);
+        await deleteFromS3(attachment.fileUrl);
       } catch (error) {
-        console.error("Failed to delete from blob storage:", error);
+        console.error("Failed to delete from S3:", error);
       }
 
       await ctx.db.delete(attachments).where(eq(attachments.id, input.attachmentId));

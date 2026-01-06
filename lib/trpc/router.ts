@@ -17,6 +17,9 @@ import { invoicesRouter } from "./routers/invoices";
 import { productsRouter } from "./routers/products";
 import { reportsRouter } from "./routers/reports";
 import { bokslutRouter } from "./routers/bokslut";
+// Inbox routers
+import { inboxRouter } from "./routers/inbox";
+import { allowedEmailsRouter } from "./routers/allowed-emails";
 
 export const appRouter = router({
   workspaces: workspacesRouter,
@@ -37,6 +40,9 @@ export const appRouter = router({
   products: productsRouter,
   reports: reportsRouter,
   bokslut: bokslutRouter,
+  // Inbox routers
+  inbox: inboxRouter,
+  allowedEmails: allowedEmailsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -70,6 +70,17 @@ export const updateWorkspaceSchema = z.object({
   latePaymentInterest: z.number().min(0).max(100).optional().nullable(),
   defaultPaymentMethod: z.string().max(50).optional().nullable(),
   addOcrNumber: z.boolean().optional().nullable(),
+  // Email inbox settings
+  inboxEmailSlug: z
+    .string()
+    .min(1, "Inkorgs-slug krävs")
+    .max(50, "Inkorgs-slug får max vara 50 tecken")
+    .regex(
+      /^[a-z0-9]+(\.[a-z0-9]+)?$/,
+      "Endast små bokstäver, siffror och en punkt tillåts (t.ex. 'företag.ab12')"
+    )
+    .optional()
+    .nullable(),
 });
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;

@@ -16,6 +16,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { MembersList } from "@/components/members/members-list";
 import { PendingInvites } from "@/components/members/pending-invites";
 import { InviteForm } from "@/components/members/invite-form";
+import { AllowedEmailsSection } from "@/components/members/allowed-emails-section";
 
 export const metadata: Metadata = {
   title: "Medlemmar — Kvitty",
@@ -72,6 +73,7 @@ export default async function MembersPage({
         <MembersList workspaceId={workspace.id} currentUserId={session?.user?.id} />
         <PendingInvites workspaceId={workspace.id} />
         <InviteForm workspaceId={workspace.id} workspaceSlug={workspaceSlug} />
+        <AllowedEmailsSection workspaceId={workspace.id} />
       </div>
     </>
   );

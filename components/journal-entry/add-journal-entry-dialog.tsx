@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import { useDropzone } from "react-dropzone";
+import { toast } from "sonner";
+import { useS3Upload } from "@/lib/hooks/use-s3-upload";
 import {
   Plus,
   Receipt,
@@ -59,6 +60,7 @@ type FiscalPeriod = typeof fiscalPeriods.$inferSelect;
 
 interface AddJournalEntryDialogProps {
   workspaceId: string;
+  workspaceSlug: string;
   periods: FiscalPeriod[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -90,6 +92,7 @@ const AI_CHAT_STORAGE_KEY = "kvitty:ai-chat-visible";
 
 export function AddJournalEntryDialog({
   workspaceId,
+  workspaceSlug,
   periods,
   open,
   onOpenChange,
@@ -201,35 +204,59 @@ export function AddJournalEntryDialog({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"],
       "application/pdf": [".pdf"],
     },
+    maxSize: MAX_FILE_SIZE,
+    onDropRejected: (rejectedFiles) => {
+      const tooLarge = rejectedFiles.filter(f =>
+        f.errors.some(e => e.code === "file-too-large")
+      );
+      if (tooLarge.length > 0) {
+        toast.error("Filen är för stor", {
+          description: "Max filstorlek är 25MB",
+        });
+      }
+    },
   });
 
   const utils = trpc.useUtils();
+  const { upload: s3Upload } = useS3Upload();
   const addAttachment = trpc.journalEntries.addAttachment.useMutation();
 
   const uploadFiles = async (journalEntryId: string) => {
+    let successCount = 0;
+    const failedFiles: string[] = [];
+
     for (const file of files) {
       try {
-        const blob = await upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-        });
+        const { cloudFrontUrl } = await s3Upload(file, { workspaceSlug });
         await addAttachment.mutateAsync({
           workspaceId,
           journalEntryId,
           fileName: file.name,
-          fileUrl: blob.url,
+          fileUrl: cloudFrontUrl,
           fileSize: file.size,
           mimeType: file.type,
         });
+        successCount++;
       } catch (err) {
         console.error("Failed to upload file:", file.name, err);
+        failedFiles.push(file.name);
       }
+    }
+
+    if (failedFiles.length > 0) {
+      toast.error("Vissa filer kunde inte laddas upp", {
+        description: failedFiles.join(", "),
+      });
+    } else if (successCount > 0) {
+      toast.success(successCount === 1 ? "Fil bifogad" : `${successCount} filer bifogade`);
     }
   };
 
@@ -620,7 +647,7 @@ export function AddJournalEntryDialog({
                           : "Dra och släpp kvitto eller faktura, eller klicka för att välja"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        PDF, PNG, JPG (max 10MB)
+                        PDF, PNG, JPG (max 25MB)
                       </p>
                     </div>
 

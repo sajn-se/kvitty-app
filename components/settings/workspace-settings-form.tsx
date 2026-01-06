@@ -86,22 +86,33 @@ export function WorkspaceSettingsForm({
       paymentTermsDays: workspace.paymentTermsDays ?? 30,
       invoiceNotes: workspace.invoiceNotes ?? "",
       deliveryTerms: workspace.deliveryTerms ?? "",
-      latePaymentInterest: workspace.latePaymentInterest ? Number(workspace.latePaymentInterest) : null,
+      latePaymentInterest: workspace.latePaymentInterest
+        ? Number(workspace.latePaymentInterest)
+        : null,
       defaultPaymentMethod: workspace.defaultPaymentMethod ?? "",
       addOcrNumber: workspace.addOcrNumber ?? false,
+      inboxEmailSlug: workspace.inboxEmailSlug ?? "",
     },
   });
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isDirty },
+  } = form;
 
   const updateMutation = trpc.workspaces.update.useMutation({
     onSuccess: (updated) => {
       if (updated.slug !== workspace.slug) {
         router.push(`/${updated.slug}/installningar`);
       } else {
-        form.reset({
-          workspaceId: workspace.id,
+        reset({
+          workspaceId: updated.id,
           name: updated.name,
           slug: updated.slug,
-          businessType: updated.businessType,
+          businessType: updated.businessType ?? null,
           orgNumber: updated.orgNumber ?? "",
           orgName: updated.orgName ?? "",
           contactName: updated.contactName ?? "",
@@ -118,9 +129,12 @@ export function WorkspaceSettingsForm({
           paymentTermsDays: updated.paymentTermsDays ?? 30,
           invoiceNotes: updated.invoiceNotes ?? "",
           deliveryTerms: updated.deliveryTerms ?? "",
-          latePaymentInterest: updated.latePaymentInterest ? Number(updated.latePaymentInterest) : null,
+          latePaymentInterest: updated.latePaymentInterest
+            ? Number(updated.latePaymentInterest)
+            : null,
           defaultPaymentMethod: updated.defaultPaymentMethod ?? "",
           addOcrNumber: updated.addOcrNumber ?? false,
+          inboxEmailSlug: updated.inboxEmailSlug ?? "",
         });
         router.refresh();
       }
@@ -128,166 +142,78 @@ export function WorkspaceSettingsForm({
   });
 
   function onSubmit(data: FormValues) {
-    const payload: Parameters<typeof updateMutation.mutate>[0] = {
-      workspaceId: workspace.id,
+    updateMutation.mutate({
+      workspaceId: data.workspaceId,
       name: data.name,
-    };
-
-    if (data.slug !== workspace.slug) {
-      payload.slug = data.slug;
-    }
-
-    if (data.businessType !== workspace.businessType) {
-      payload.businessType = data.businessType;
-    }
-
-    if (data.orgNumber !== (workspace.orgNumber ?? "")) {
-      payload.orgNumber = data.orgNumber || "";
-    }
-
-    if (data.orgName !== (workspace.orgName ?? "")) {
-      payload.orgName = data.orgName || null;
-    }
-
-    if (data.contactName !== (workspace.contactName ?? "")) {
-      payload.contactName = data.contactName || null;
-    }
-
-    if (data.contactPhone !== (workspace.contactPhone ?? "")) {
-      payload.contactPhone = data.contactPhone || null;
-    }
-
-    if (data.contactEmail !== (workspace.contactEmail ?? "")) {
-      payload.contactEmail = data.contactEmail || null;
-    }
-
-    if (data.address !== (workspace.address ?? "")) {
-      payload.address = data.address || null;
-    }
-
-    if (data.postalCode !== (workspace.postalCode ?? "")) {
-      payload.postalCode = data.postalCode || null;
-    }
-
-    if (data.city !== (workspace.city ?? "")) {
-      payload.city = data.city || null;
-    }
-
-    if (data.bankgiro !== (workspace.bankgiro ?? "")) {
-      payload.bankgiro = data.bankgiro || null;
-    }
-
-    if (data.plusgiro !== (workspace.plusgiro ?? "")) {
-      payload.plusgiro = data.plusgiro || null;
-    }
-
-    if (data.iban !== (workspace.iban ?? "")) {
-      payload.iban = data.iban || null;
-    }
-
-    if (data.bic !== (workspace.bic ?? "")) {
-      payload.bic = data.bic || null;
-    }
-
-    if (data.swishNumber !== (workspace.swishNumber ?? "")) {
-      payload.swishNumber = data.swishNumber || null;
-    }
-
-    if (data.paymentTermsDays !== (workspace.paymentTermsDays ?? 30)) {
-      payload.paymentTermsDays = data.paymentTermsDays;
-    }
-
-    if (data.invoiceNotes !== (workspace.invoiceNotes ?? "")) {
-      payload.invoiceNotes = data.invoiceNotes || null;
-    }
-
-    if (data.deliveryTerms !== (workspace.deliveryTerms ?? "")) {
-      payload.deliveryTerms = data.deliveryTerms || null;
-    }
-
-    if (data.latePaymentInterest !== (workspace.latePaymentInterest ? Number(workspace.latePaymentInterest) : null)) {
-      payload.latePaymentInterest = data.latePaymentInterest;
-    }
-
-    if (data.defaultPaymentMethod !== (workspace.defaultPaymentMethod ?? "")) {
-      payload.defaultPaymentMethod = data.defaultPaymentMethod || null;
-    }
-
-    if (data.addOcrNumber !== (workspace.addOcrNumber ?? false)) {
-      payload.addOcrNumber = data.addOcrNumber;
-    }
-
-    updateMutation.mutate(payload);
+      slug: data.slug,
+      businessType: data.businessType,
+      orgNumber: data.orgNumber || undefined,
+      orgName: data.orgName || null,
+      contactName: data.contactName || null,
+      contactPhone: data.contactPhone || null,
+      contactEmail: data.contactEmail || null,
+      address: data.address || null,
+      postalCode: data.postalCode || null,
+      city: data.city || null,
+      bankgiro: data.bankgiro || null,
+      plusgiro: data.plusgiro || null,
+      iban: data.iban || null,
+      bic: data.bic || null,
+      swishNumber: data.swishNumber || null,
+      paymentTermsDays: data.paymentTermsDays,
+      invoiceNotes: data.invoiceNotes || null,
+      deliveryTerms: data.deliveryTerms || null,
+      latePaymentInterest: data.latePaymentInterest,
+      defaultPaymentMethod: data.defaultPaymentMethod || null,
+      addOcrNumber: data.addOcrNumber,
+      inboxEmailSlug: data.inboxEmailSlug || null,
+    });
   }
 
-  const isDirty = form.formState.isDirty;
   const isSubmitting = updateMutation.isPending;
 
   return (
-    <form id="workspace-settings-form" onSubmit={form.handleSubmit(onSubmit)}>
+    <form id="workspace-settings-form" onSubmit={handleSubmit(onSubmit)}>
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Grundläggande information</CardTitle>
-            <CardDescription>
-              Arbetsytans namn och URL-slug
-            </CardDescription>
+            <CardDescription>Arbetsytans namn och URL-slug</CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <Controller
-                name="name"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-name">
-                      Namn
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="workspace-settings-name"
-                      placeholder="Arbetsytans namn"
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      Namnet som visas i sidomenyn och på arbetsytan
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <Controller
-                name="slug"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-slug">
-                      URL-slug
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="workspace-settings-slug"
-                      placeholder="abcd"
-                      pattern="[a-z0-9]{4}"
-                      maxLength={4}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                      onChange={(e) => {
-                        field.onChange(e.target.value.toLowerCase());
-                      }}
-                    />
-                    <FieldDescription>
-                      4 tecken (a-z, 0-9). Används i webbadressen: /{field.value}/...
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
+              <Field data-invalid={!!errors.name}>
+                <FieldLabel htmlFor="name">Namn</FieldLabel>
+                <Input
+                  id="name"
+                  placeholder="Arbetsytans namn"
+                  disabled={isSubmitting}
+                  {...register("name")}
+                />
+                <FieldDescription>
+                  Namnet som visas i sidomenyn och på arbetsytan
+                </FieldDescription>
+                {errors.name && <FieldError errors={[errors.name]} />}
+              </Field>
+
+              <Field data-invalid={!!errors.slug}>
+                <FieldLabel htmlFor="slug">URL-slug</FieldLabel>
+                <Input
+                  id="slug"
+                  placeholder="abcd"
+                  maxLength={4}
+                  disabled={isSubmitting}
+                  {...register("slug", {
+                    onChange: (e) => {
+                      e.target.value = e.target.value.toLowerCase();
+                    },
+                  })}
+                />
+                <FieldDescription>
+                  4 tecken (a-z, 0-9). Används i webbadressen
+                </FieldDescription>
+                {errors.slug && <FieldError errors={[errors.slug]} />}
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
@@ -303,24 +229,18 @@ export function WorkspaceSettingsForm({
             <FieldGroup>
               <Controller
                 name="businessType"
-                control={form.control}
+                control={control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-businessType">
-                      Företagstyp
-                    </FieldLabel>
+                    <FieldLabel htmlFor="businessType">Företagstyp</FieldLabel>
                     <Select
                       value={field.value ?? "__none__"}
-                      onValueChange={(value) => {
-                        field.onChange(value === "__none__" ? null : value);
-                      }}
+                      onValueChange={(v) =>
+                        field.onChange(v === "__none__" ? null : v)
+                      }
                       disabled={isSubmitting}
                     >
-                      <SelectTrigger
-                        id="workspace-settings-businessType"
-                        className="w-full"
-                        aria-invalid={fieldState.invalid}
-                      >
+                      <SelectTrigger id="businessType" className="w-full">
                         <SelectValue placeholder="Välj företagstyp" />
                       </SelectTrigger>
                       <SelectContent>
@@ -335,64 +255,40 @@ export function WorkspaceSettingsForm({
                     <FieldDescription>
                       Typ av företag eller organisation
                     </FieldDescription>
-                    {fieldState.invalid && (
+                    {fieldState.error && (
                       <FieldError errors={[fieldState.error]} />
                     )}
                   </Field>
                 )}
               />
-              <Controller
-                name="orgNumber"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-orgNumber">
-                      Organisationsnummer
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="workspace-settings-orgNumber"
-                      placeholder="165592540321"
-                      pattern="\d{10,12}"
-                      maxLength={12}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      10-12 siffror (t.ex. 165592540321)
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <Controller
-                name="orgName"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-orgName">
-                      Företagsnamn
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      value={field.value ?? ""}
-                      id="workspace-settings-orgName"
-                      placeholder="Företagsnamn"
-                      maxLength={200}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      Det officiella företagsnamnet
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
+
+              <Field data-invalid={!!errors.orgNumber}>
+                <FieldLabel htmlFor="orgNumber">Organisationsnummer</FieldLabel>
+                <Input
+                  id="orgNumber"
+                  placeholder="165592540321"
+                  maxLength={12}
+                  disabled={isSubmitting}
+                  {...register("orgNumber")}
+                />
+                <FieldDescription>
+                  10-12 siffror (t.ex. 165592540321)
+                </FieldDescription>
+                {errors.orgNumber && <FieldError errors={[errors.orgNumber]} />}
+              </Field>
+
+              <Field data-invalid={!!errors.orgName}>
+                <FieldLabel htmlFor="orgName">Företagsnamn</FieldLabel>
+                <Input
+                  id="orgName"
+                  placeholder="Företagsnamn"
+                  maxLength={200}
+                  disabled={isSubmitting}
+                  {...register("orgName")}
+                />
+                <FieldDescription>Det officiella företagsnamnet</FieldDescription>
+                {errors.orgName && <FieldError errors={[errors.orgName]} />}
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
@@ -400,91 +296,61 @@ export function WorkspaceSettingsForm({
         <Card>
           <CardHeader>
             <CardTitle>Kontaktinformation</CardTitle>
-            <CardDescription>
-              Kontaktuppgifter för företaget
-            </CardDescription>
+            <CardDescription>Kontaktuppgifter för företaget</CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <Controller
-                name="contactName"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-contactName">
-                      Kontaktperson
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      value={field.value ?? ""}
-                      id="workspace-settings-contactName"
-                      placeholder="Namn på kontaktperson"
-                      maxLength={100}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      Namn på den person som ska kontaktas
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
+              <Field data-invalid={!!errors.contactName}>
+                <FieldLabel htmlFor="contactName">Kontaktperson</FieldLabel>
+                <Input
+                  id="contactName"
+                  placeholder="Namn på kontaktperson"
+                  maxLength={100}
+                  disabled={isSubmitting}
+                  {...register("contactName")}
+                />
+                <FieldDescription>
+                  Namn på den person som ska kontaktas
+                </FieldDescription>
+                {errors.contactName && (
+                  <FieldError errors={[errors.contactName]} />
                 )}
-              />
-              <Controller
-                name="contactPhone"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-contactPhone">
-                      Telefonnummer
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      value={field.value ?? ""}
-                      id="workspace-settings-contactPhone"
-                      type="tel"
-                      placeholder="+46 70 123 45 67"
-                      maxLength={20}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      Telefonnummer till kontaktpersonen
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
+              </Field>
+
+              <Field data-invalid={!!errors.contactPhone}>
+                <FieldLabel htmlFor="contactPhone">Telefonnummer</FieldLabel>
+                <Input
+                  id="contactPhone"
+                  type="tel"
+                  placeholder="+46 70 123 45 67"
+                  maxLength={20}
+                  disabled={isSubmitting}
+                  {...register("contactPhone")}
+                />
+                <FieldDescription>
+                  Telefonnummer till kontaktpersonen
+                </FieldDescription>
+                {errors.contactPhone && (
+                  <FieldError errors={[errors.contactPhone]} />
                 )}
-              />
-              <Controller
-                name="contactEmail"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-contactEmail">
-                      E-postadress
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      value={field.value ?? ""}
-                      id="workspace-settings-contactEmail"
-                      type="email"
-                      placeholder="kontakt@foretag.se"
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      E-postadress till kontaktpersonen
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
+              </Field>
+
+              <Field data-invalid={!!errors.contactEmail}>
+                <FieldLabel htmlFor="contactEmail">E-postadress</FieldLabel>
+                <Input
+                  id="contactEmail"
+                  type="email"
+                  placeholder="kontakt@foretag.se"
+                  disabled={isSubmitting}
+                  {...register("contactEmail")}
+                />
+                <FieldDescription>
+                  E-postadress till kontaktpersonen
+                </FieldDescription>
+                {errors.contactEmail && (
+                  <FieldError errors={[errors.contactEmail]} />
                 )}
-              />
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>
@@ -496,79 +362,47 @@ export function WorkspaceSettingsForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <Controller
-                name="address"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-address">
-                      Gatuadress
-                    </FieldLabel>
-                    <Textarea
-                      {...field}
-                      value={field.value ?? ""}
-                      id="workspace-settings-address"
-                      placeholder="Gatan 123"
-                      maxLength={200}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>Gatuadress</FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
+              <Field data-invalid={!!errors.address}>
+                <FieldLabel htmlFor="address">Gatuadress</FieldLabel>
+                <Textarea
+                  id="address"
+                  placeholder="Gatan 123"
+                  maxLength={200}
+                  disabled={isSubmitting}
+                  {...register("address")}
+                />
+                <FieldDescription>Gatuadress</FieldDescription>
+                {errors.address && <FieldError errors={[errors.address]} />}
+              </Field>
+
               <div className="grid grid-cols-2 gap-4">
-                <Controller
-                  name="postalCode"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-postalCode">
-                        Postnummer
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-postalCode"
-                        placeholder="123 45"
-                        maxLength={10}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>Postnummer</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
+                <Field data-invalid={!!errors.postalCode}>
+                  <FieldLabel htmlFor="postalCode">Postnummer</FieldLabel>
+                  <Input
+                    id="postalCode"
+                    placeholder="123 45"
+                    maxLength={10}
+                    disabled={isSubmitting}
+                    {...register("postalCode")}
+                  />
+                  <FieldDescription>Postnummer</FieldDescription>
+                  {errors.postalCode && (
+                    <FieldError errors={[errors.postalCode]} />
                   )}
-                />
-                <Controller
-                  name="city"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-city">
-                        Stad
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-city"
-                        placeholder="Stockholm"
-                        maxLength={100}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>Stad</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
+                </Field>
+
+                <Field data-invalid={!!errors.city}>
+                  <FieldLabel htmlFor="city">Stad</FieldLabel>
+                  <Input
+                    id="city"
+                    placeholder="Stockholm"
+                    maxLength={100}
+                    disabled={isSubmitting}
+                    {...register("city")}
+                  />
+                  <FieldDescription>Stad</FieldDescription>
+                  {errors.city && <FieldError errors={[errors.city]} />}
+                </Field>
               </div>
             </FieldGroup>
           </CardContent>
@@ -584,242 +418,228 @@ export function WorkspaceSettingsForm({
           <CardContent>
             <FieldGroup>
               <div className="grid grid-cols-2 gap-4">
-                <Controller
-                  name="bankgiro"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-bankgiro">
-                        Bankgiro
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-bankgiro"
-                        placeholder="123-4567"
-                        maxLength={20}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>Bankgironummer</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
-                <Controller
-                  name="plusgiro"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-plusgiro">
-                        Plusgiro
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-plusgiro"
-                        placeholder="12 34 56-7"
-                        maxLength={20}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>Plusgironummer</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
+                <Field data-invalid={!!errors.bankgiro}>
+                  <FieldLabel htmlFor="bankgiro">Bankgiro</FieldLabel>
+                  <Input
+                    id="bankgiro"
+                    placeholder="123-4567"
+                    maxLength={20}
+                    disabled={isSubmitting}
+                    {...register("bankgiro")}
+                  />
+                  <FieldDescription>Bankgironummer</FieldDescription>
+                  {errors.bankgiro && <FieldError errors={[errors.bankgiro]} />}
+                </Field>
+
+                <Field data-invalid={!!errors.plusgiro}>
+                  <FieldLabel htmlFor="plusgiro">Plusgiro</FieldLabel>
+                  <Input
+                    id="plusgiro"
+                    placeholder="12 34 56-7"
+                    maxLength={20}
+                    disabled={isSubmitting}
+                    {...register("plusgiro")}
+                  />
+                  <FieldDescription>Plusgironummer</FieldDescription>
+                  {errors.plusgiro && <FieldError errors={[errors.plusgiro]} />}
+                </Field>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <Controller
-                  name="iban"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-iban">
-                        IBAN
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-iban"
-                        placeholder="SE35 5000 0000 0549 1000 0003"
-                        maxLength={34}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>För internationella betalningar</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
-                <Controller
-                  name="bic"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-bic">
-                        BIC/SWIFT
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-bic"
-                        placeholder="ESSESESS"
-                        maxLength={11}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>Bankens BIC-kod</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
+                <Field data-invalid={!!errors.iban}>
+                  <FieldLabel htmlFor="iban">IBAN</FieldLabel>
+                  <Input
+                    id="iban"
+                    placeholder="SE35 5000 0000 0549 1000 0003"
+                    maxLength={34}
+                    disabled={isSubmitting}
+                    {...register("iban")}
+                  />
+                  <FieldDescription>
+                    För internationella betalningar
+                  </FieldDescription>
+                  {errors.iban && <FieldError errors={[errors.iban]} />}
+                </Field>
+
+                <Field data-invalid={!!errors.bic}>
+                  <FieldLabel htmlFor="bic">BIC/SWIFT</FieldLabel>
+                  <Input
+                    id="bic"
+                    placeholder="ESSESESS"
+                    maxLength={11}
+                    disabled={isSubmitting}
+                    {...register("bic")}
+                  />
+                  <FieldDescription>Bankens BIC-kod</FieldDescription>
+                  {errors.bic && <FieldError errors={[errors.bic]} />}
+                </Field>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <Controller
-                  name="swishNumber"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-swishNumber">
-                        Swish-nummer
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-swishNumber"
-                        placeholder="123 456 78 90"
-                        maxLength={20}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>Swish för företag</FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
+                <Field data-invalid={!!errors.swishNumber}>
+                  <FieldLabel htmlFor="swishNumber">Swish-nummer</FieldLabel>
+                  <Input
+                    id="swishNumber"
+                    placeholder="123 456 78 90"
+                    maxLength={20}
+                    disabled={isSubmitting}
+                    {...register("swishNumber")}
+                  />
+                  <FieldDescription>Swish för företag</FieldDescription>
+                  {errors.swishNumber && (
+                    <FieldError errors={[errors.swishNumber]} />
                   )}
-                />
+                </Field>
+
                 <Controller
                   name="paymentTermsDays"
-                  control={form.control}
+                  control={control}
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-paymentTermsDays">
+                      <FieldLabel htmlFor="paymentTermsDays">
                         Betalningsvillkor (dagar)
                       </FieldLabel>
                       <Input
-                        {...field}
-                        value={field.value ?? 30}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
-                        id="workspace-settings-paymentTermsDays"
+                        id="paymentTermsDays"
                         type="number"
                         min={1}
                         max={365}
                         disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value ? parseInt(e.target.value) : 30
+                          )
+                        }
                       />
                       <FieldDescription>Standard: 30 dagar netto</FieldDescription>
-                      {fieldState.invalid && (
+                      {fieldState.error && (
                         <FieldError errors={[fieldState.error]} />
                       )}
                     </Field>
                   )}
                 />
               </div>
-              <Controller
-                name="invoiceNotes"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="workspace-settings-invoiceNotes">
-                      Fakturatext
-                    </FieldLabel>
-                    <Textarea
-                      {...field}
-                      value={field.value ?? ""}
-                      id="workspace-settings-invoiceNotes"
-                      placeholder="Standardtext som visas på fakturor..."
-                      maxLength={1000}
-                      rows={3}
-                      disabled={isSubmitting}
-                      aria-invalid={fieldState.invalid}
-                    />
-                    <FieldDescription>
-                      Visas längst ner på alla fakturor
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Controller
-                  name="deliveryTerms"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-deliveryTerms">
-                        Leveransvillkor (standard)
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        id="workspace-settings-deliveryTerms"
-                        placeholder="T.ex. Fritt vårt lager"
-                        maxLength={200}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <FieldDescription>
-                        Standardtext för leveransvillkor på fakturor
-                      </FieldDescription>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
+
+              <Field data-invalid={!!errors.invoiceNotes}>
+                <FieldLabel htmlFor="invoiceNotes">Fakturatext</FieldLabel>
+                <Textarea
+                  id="invoiceNotes"
+                  placeholder="Standardtext som visas på fakturor..."
+                  maxLength={1000}
+                  rows={3}
+                  disabled={isSubmitting}
+                  {...register("invoiceNotes")}
                 />
+                <FieldDescription>
+                  Visas längst ner på alla fakturor
+                </FieldDescription>
+                {errors.invoiceNotes && (
+                  <FieldError errors={[errors.invoiceNotes]} />
+                )}
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field data-invalid={!!errors.deliveryTerms}>
+                  <FieldLabel htmlFor="deliveryTerms">
+                    Leveransvillkor (standard)
+                  </FieldLabel>
+                  <Input
+                    id="deliveryTerms"
+                    placeholder="T.ex. Fritt vårt lager"
+                    maxLength={200}
+                    disabled={isSubmitting}
+                    {...register("deliveryTerms")}
+                  />
+                  <FieldDescription>
+                    Standardtext för leveransvillkor på fakturor
+                  </FieldDescription>
+                  {errors.deliveryTerms && (
+                    <FieldError errors={[errors.deliveryTerms]} />
+                  )}
+                </Field>
+
                 <Controller
                   name="latePaymentInterest"
-                  control={form.control}
+                  control={control}
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="workspace-settings-latePaymentInterest">
+                      <FieldLabel htmlFor="latePaymentInterest">
                         Dröjsmålsränta (%)
                       </FieldLabel>
                       <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                        id="workspace-settings-latePaymentInterest"
+                        id="latePaymentInterest"
                         type="number"
+                        placeholder="12"
                         min={0}
                         max={100}
                         step={0.1}
-                        placeholder="12"
                         disabled={isSubmitting}
-                        aria-invalid={fieldState.invalid}
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value ? parseFloat(e.target.value) : null
+                          )
+                        }
                       />
                       <FieldDescription>
                         Standard dröjsmålsränta vid försenad betalning
                       </FieldDescription>
-                      {fieldState.invalid && (
+                      {fieldState.error && (
                         <FieldError errors={[fieldState.error]} />
                       )}
                     </Field>
                   )}
                 />
               </div>
+            </FieldGroup>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>E-postinkorg</CardTitle>
+            <CardDescription>
+              Ta emot kvitton och bilagor via e-post
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <Field data-invalid={!!errors.inboxEmailSlug}>
+                <FieldLabel htmlFor="inboxEmailSlug">Inkorgsadress</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="inboxEmailSlug"
+                    placeholder={`${workspace.name.toLowerCase().replace(/[^a-z0-9]/g, "")}.${workspace.slug}`}
+                    maxLength={50}
+                    disabled={isSubmitting}
+                    className="flex-1"
+                    {...register("inboxEmailSlug", {
+                      onChange: (e) => {
+                        e.target.value = e.target.value.toLowerCase();
+                      },
+                    })}
+                  />
+                  <span className="text-muted-foreground whitespace-nowrap">
+                    @kvitty.se
+                  </span>
+                </div>
+                <FieldDescription>
+                  {form.watch("inboxEmailSlug") ? (
+                    <>
+                      Skicka kvitton till{" "}
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                        {form.watch("inboxEmailSlug")}@kvitty.se
+                      </code>
+                    </>
+                  ) : (
+                    "Endast små bokstäver, siffror och en punkt tillåts (t.ex. 'företag.ab12')"
+                  )}
+                </FieldDescription>
+                {errors.inboxEmailSlug && (
+                  <FieldError errors={[errors.inboxEmailSlug]} />
+                )}
+              </Field>
             </FieldGroup>
           </CardContent>
         </Card>

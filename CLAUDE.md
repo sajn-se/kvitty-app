@@ -30,7 +30,7 @@ pnpm db:wipe          # Wipe database (scripts/wipe-db.ts)
 - **API**: tRPC with React Query
 - **Authentication**: better-auth (magic link, email OTP, Google OAuth)
 - **Styling**: Tailwind CSS v4 + shadcn/ui components
-- **File Storage**: Vercel Blob
+- **File Storage**: AWS S3 + CloudFront
 - **AI**: Groq SDK with AI SDK
 
 ### Route Structure
@@ -74,7 +74,7 @@ See `.env.example` for required variables:
 - `BETTER_AUTH_SECRET` - Auth encryption key
 - `GOOGLE_CLIENT_ID/SECRET` - OAuth
 - `GROQ_API_KEY` - AI features
-- `BLOB_READ_WRITE_TOKEN` - File uploads
+- `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `CLOUDFRONT_DOMAIN` - File uploads
 
 ## Swedish Context
 

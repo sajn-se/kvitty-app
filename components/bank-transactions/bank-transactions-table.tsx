@@ -22,6 +22,7 @@ import { BankTransactionDetailSheet } from "./bank-transaction-detail-sheet";
 interface BankTransactionsTableProps {
   data: BankTransaction[];
   workspaceId: string;
+  workspaceSlug: string;
   hasFilters: boolean;
   initialSelectedId?: string;
   onSelectedIdHandled?: () => void;
@@ -30,6 +31,7 @@ interface BankTransactionsTableProps {
 export function BankTransactionsTable({
   data,
   workspaceId,
+  workspaceSlug,
   hasFilters,
   initialSelectedId,
   onSelectedIdHandled,
@@ -117,6 +119,7 @@ export function BankTransactionsTable({
       <BankTransactionDetailSheet
         transaction={selectedTransaction}
         workspaceId={workspaceId}
+        workspaceSlug={workspaceSlug}
         open={!!selectedTransaction}
         onOpenChange={(open) => !open && setSelectedTransaction(null)}
       />

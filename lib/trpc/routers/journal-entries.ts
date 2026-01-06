@@ -13,6 +13,7 @@ import {
   createJournalEntrySchema,
   updateJournalEntrySchema,
 } from "@/lib/validations/journal-entry";
+import { deleteFromS3 } from "@/lib/utils/s3";
 
 export const journalEntriesRouter = router({
   list: workspaceProcedure
@@ -437,6 +438,22 @@ export const journalEntriesRouter = router({
 
       if (!entry) {
         throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      // Fetch the attachment to get the file URL
+      const attachment = await ctx.db.query.journalEntryAttachments.findFirst({
+        where: eq(journalEntryAttachments.id, input.attachmentId),
+      });
+
+      if (!attachment) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      // Delete from S3
+      try {
+        await deleteFromS3(attachment.fileUrl);
+      } catch (error) {
+        console.error("Failed to delete from S3:", error);
       }
 
       await ctx.db

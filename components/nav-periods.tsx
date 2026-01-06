@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Plus, Minus, FileText, Swap, CalendarBlank } from "@phosphor-icons/react";
+import { Plus, Minus, FileText, Swap, CalendarBlank, Tray } from "@phosphor-icons/react";
 
 import {
   SidebarGroup,
@@ -62,6 +62,19 @@ export function NavPeriods({
                 <Link href={`/${workspaceSlug}/transaktioner`}>
                   <Swap className="size-4" weight="duotone" />
                   <span>Transaktioner</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Inkorg"
+                isActive={pathname === `/${workspaceSlug}/inbox`}
+              >
+                <Link href={`/${workspaceSlug}/inbox`}>
+                  <Tray className="size-4" weight="duotone" />
+                  <span>Inkorg</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -583,6 +583,7 @@ export function FullModeSidebar({
       {addEntryOpen && (
         <AddJournalEntryDialog
           workspaceId={workspace.id}
+          workspaceSlug={workspace.slug}
           periods={periods}
           open={addEntryOpen}
           onOpenChange={(open) => {

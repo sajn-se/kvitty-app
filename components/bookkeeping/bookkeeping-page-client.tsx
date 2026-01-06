@@ -287,6 +287,7 @@ export function BookkeepingPageClient({
       {addEntryOpen && (
         <AddJournalEntryDialog
           workspaceId={workspace.id}
+          workspaceSlug={workspaceSlug}
           periods={periods}
           open={addEntryOpen}
           onOpenChange={setAddEntryOpen}

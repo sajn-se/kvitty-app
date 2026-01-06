@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
+import { toast } from "sonner";
+import { useS3Upload } from "@/lib/hooks/use-s3-upload";
 import { Paperclip, ChatCircle, Trash, FilePdf, Image as ImageIcon, File, FileXls, FileCsv, Pencil } from "@phosphor-icons/react";
 import {
   Sheet,
@@ -35,6 +36,7 @@ type BankTransaction = typeof bankTransactions.$inferSelect;
 interface BankTransactionDetailSheetProps {
   transaction: BankTransaction | null;
   workspaceId: string;
+  workspaceSlug: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -42,14 +44,15 @@ interface BankTransactionDetailSheetProps {
 export function BankTransactionDetailSheet({
   transaction,
   workspaceId,
+  workspaceSlug,
   open,
   onOpenChange,
 }: BankTransactionDetailSheetProps) {
   const router = useRouter();
   const utils = trpc.useUtils();
+  const { upload: s3Upload, isUploading } = useS3Upload();
   const [comment, setComment] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -103,22 +106,32 @@ export function BankTransactionDetailSheet({
     }).format(parseFloat(value));
   };
 
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+
   async function uploadFiles(files: FileList | File[]) {
     if (!files.length || !transaction) return;
 
-    setIsUploading(true);
+    const allFiles = Array.from(files);
+    const validFiles = allFiles.filter(f => f.size <= MAX_FILE_SIZE);
+    const tooLargeFiles = allFiles.filter(f => f.size > MAX_FILE_SIZE);
+
+    if (tooLargeFiles.length > 0) {
+      toast.error("Vissa filer är för stora", {
+        description: `${tooLargeFiles.map(f => f.name).join(", ")} (max 25MB)`,
+      });
+    }
+
+    if (!validFiles.length) return;
+
     try {
-      const uploads = Array.from(files).map(async (file) => {
-        const blob = await upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-        });
+      const uploads = validFiles.map(async (file) => {
+        const { cloudFrontUrl } = await s3Upload(file, { workspaceSlug });
 
         await utils.client.attachments.create.mutate({
           workspaceId,
           bankTransactionId: transaction.id,
           fileName: file.name,
-          fileUrl: blob.url,
+          fileUrl: cloudFrontUrl,
           fileSize: file.size,
           mimeType: file.type,
         });
@@ -130,10 +143,13 @@ export function BankTransactionDetailSheet({
         workspaceId,
         bankTransactionId: transaction.id,
       });
+
+      toast.success(validFiles.length === 1 ? "Fil uppladdad" : `${validFiles.length} filer uppladdade`);
     } catch (error) {
       console.error("Upload failed:", error);
-    } finally {
-      setIsUploading(false);
+      toast.error("Uppladdning misslyckades", {
+        description: error instanceof Error ? error.message : "Försök igen senare",
+      });
     }
   }
 
@@ -302,7 +318,7 @@ export function BankTransactionDetailSheet({
                   {isUploading ? "Laddar upp..." : "Dra och släpp eller klicka för att ladda upp"}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  PDF, bilder, Excel, CSV (max 10MB)
+                  PDF, bilder, Excel, CSV (max 25MB)
                 </p>
                 <input
                   id="file-upload"

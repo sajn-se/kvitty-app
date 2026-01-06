@@ -26,7 +26,7 @@ import { generateAGIXml } from "@/lib/utils/agi-generator";
 import { decrypt } from "@/lib/utils/encryption";
 import { generateSalaryStatementPdf } from "@/lib/utils/salary-statement-pdf";
 import { sendSalaryStatementEmail } from "@/lib/email/send-salary-statement";
-import { put } from "@vercel/blob";
+import { uploadToS3 } from "@/lib/utils/s3";
 
 export const payrollRouter = router({
   listRuns: workspaceProcedure
@@ -745,15 +745,16 @@ export const payrollRouter = router({
         },
       });
 
-      // Upload PDF to Vercel Blob
+      // Upload PDF to S3
       const pdfBuffer = Buffer.from(pdfDoc.output("arraybuffer") as ArrayBuffer);
-      const filename = `salary-statements/${ctx.workspaceId}/${entry.payrollRun.period}/${entry.employee.id}.pdf`;
+      const filename = `salary-statement-${entry.payrollRun.period}-${entry.employee.id}.pdf`;
 
-      const blob = await put(filename, pdfBuffer, {
-        access: "public",
-        contentType: "application/pdf",
-        addRandomSuffix: true, // Security: Add random suffix to prevent URL guessing
-      });
+      const { cloudFrontUrl } = await uploadToS3(
+        pdfBuffer,
+        filename,
+        "application/pdf",
+        workspace.slug
+      );
 
       // Check if statement already exists for this entry
       const existingStatement = await ctx.db.query.salaryStatements.findFirst({
@@ -767,7 +768,7 @@ export const payrollRouter = router({
         const [updated] = await ctx.db
           .update(salaryStatements)
           .set({
-            pdfUrl: blob.url,
+            pdfUrl: cloudFrontUrl,
           })
           .where(eq(salaryStatements.id, existingStatement.id))
           .returning();
@@ -780,7 +781,7 @@ export const payrollRouter = router({
             payrollEntryId: input.payrollEntryId,
             employeeId: entry.employeeId,
             period: entry.payrollRun.period,
-            pdfUrl: blob.url,
+            pdfUrl: cloudFrontUrl,
           })
           .returning();
         statementId = statement.id;
@@ -811,7 +812,7 @@ export const payrollRouter = router({
 
       return {
         statementId,
-        pdfUrl: blob.url,
+        pdfUrl: cloudFrontUrl,
         emailSent: input.sendEmail && !!entry.employee.email,
       };
     }),
@@ -888,15 +889,16 @@ export const payrollRouter = router({
             },
           });
 
-          // Upload PDF to Vercel Blob
+          // Upload PDF to S3
           const pdfBuffer = Buffer.from(pdfDoc.output("arraybuffer") as ArrayBuffer);
-          const filename = `salary-statements/${ctx.workspaceId}/${run.period}/${entry.employee.id}.pdf`;
+          const filename = `salary-statement-${run.period}-${entry.employee.id}.pdf`;
 
-          const blob = await put(filename, pdfBuffer, {
-            access: "public",
-            contentType: "application/pdf",
-            addRandomSuffix: true, // Security: Add random suffix to prevent URL guessing
-          });
+          const { cloudFrontUrl } = await uploadToS3(
+            pdfBuffer,
+            filename,
+            "application/pdf",
+            workspace.slug
+          );
 
           // Check if statement already exists
           const existingStatement = await ctx.db.query.salaryStatements.findFirst({
@@ -909,7 +911,7 @@ export const payrollRouter = router({
             const [updated] = await ctx.db
               .update(salaryStatements)
               .set({
-                pdfUrl: blob.url,
+                pdfUrl: cloudFrontUrl,
               })
               .where(eq(salaryStatements.id, existingStatement.id))
               .returning();
@@ -921,7 +923,7 @@ export const payrollRouter = router({
                 payrollEntryId: entry.id,
                 employeeId: entry.employeeId,
                 period: run.period,
-                pdfUrl: blob.url,
+                pdfUrl: cloudFrontUrl,
               })
               .returning();
             statementId = statement.id;
@@ -957,7 +959,7 @@ export const payrollRouter = router({
             employeeId: entry.employeeId,
             employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
             statementId,
-            pdfUrl: blob.url,
+            pdfUrl: cloudFrontUrl,
             emailSent,
           });
         } catch (error) {
