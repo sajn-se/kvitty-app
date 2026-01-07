@@ -32,6 +32,12 @@ export function Footer() {
               Enkel bokföring för småföretag.
             </p>
             <a
+              href="mailto:hej@kvitty.se"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-3 block"
+            >
+              hej@kvitty.se
+            </a>
+            <a
               href="https://github.com/sajn-se/kvitty-app"
               target="_blank"
               rel="noopener noreferrer"

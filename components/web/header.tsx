@@ -9,7 +9,7 @@ import { getUserCookie, type UserCookie } from "@/lib/user-cookie";
 const navItems = [
   { label: "Funktioner", href: "/funktioner" },
   { label: "Priser", href: "/#priser" },
-  { label: "Om oss", href: "/#om-oss" },
+  { label: "Kontakt", href: "/kontakt" },
 ];
 
 export function Header() {
