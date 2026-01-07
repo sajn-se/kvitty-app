@@ -50,7 +50,7 @@ export function Pricing() {
           {/* Verification plan */}
           <div className="ring-1 ring-border rounded-2xl p-8 bg-card flex flex-col">
             <div className="mb-6">
-              <h3 className="font-medium text-lg mb-4">Kvitty Online</h3>
+              <h3 className="font-medium text-lg mb-4">Kvitty Lite</h3>
               <div className="flex items-baseline gap-1">
                 <span className="font-semibold text-5xl tracking-tight">Gratis</span>
               </div>
