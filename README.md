@@ -5,98 +5,98 @@
 </div>
 
 <div align="center" style="margin-top: 1rem; opacity: 0.7; font-size: 0.9em;">
-  <em>Detta är en proof-of-concept/kul sak. Denna kod reflekterar inte sajn.se-kodbasen. sajn-se org har utvecklat sajn.se (digital signeringstjänst) som är en riktig, välfungerande och battletested produkt.</em>
+  <em>This is a proof-of-concept/fun project. This code does not reflect the sajn.se codebase. The sajn-se org has developed sajn.se (digital signing service) which is a real, well-functioning and battle-tested product.</em>
 </div>
 
 ---
 
-## Om Kvitty
+## About Kvitty
 
-Kvitty är en svensk bokförings- och fakturerings-SaaS-applikation byggd för småföretag. Applikationen stödjer både enkel kvittohantering ("simple" mode) och fullständig dubbel bokföring ("full_bookkeeping" mode) med lönehantering, fakturering och AGI (Arbetsgivardeklaration) XML-generering för svensk skatterapportering.
+Kvitty is a Swedish bookkeeping and invoicing SaaS application built for small businesses. The application supports both simple receipt management ("simple" mode) and full double-entry bookkeeping ("full_bookkeeping" mode) with payroll management, invoicing, and AGI (Arbetsgivardeklaration) XML generation for Swedish tax reporting.
 
-## Funktioner
+## Features
 
-### Två lägen
+### Two Modes
 
-**Traditionell bokföring**
-- Full dubbel bokföring med stöd för BAS-kontoplanen
-- Verifikationer och huvudbok
-- Balansräkning och resultaträkning
-- SIE-export
+**Traditional Bookkeeping**
+- Full double-entry bookkeeping with support for BAS chart of accounts
+- Verifications and general ledger
+- Balance sheet and income statement
+- SIE export
 
-**Kvittohantering**
-- Enkel matchning mellan banktransaktioner och kvitton
-- Fotouppladdning av kvitton
-- Automatisk kategorisering med AI
-- Exportera underlag
+**Receipt Management**
+- Simple matching between bank transactions and receipts
+- Photo upload of receipts
+- Automatic categorization with AI
+- Export supporting documents
 
-### Fakturering
-- Skapa och hantera fakturor
-- Kund- och produktregister
-- Automatisk momsberäkning (25%, 12%, 6%, 0%)
-- Skicka fakturor via e-post
-- Påminnelser för förfallna fakturor
+### Invoicing
+- Create and manage invoices
+- Customer and product registers
+- Automatic VAT calculation (25%, 12%, 6%, 0%)
+- Send invoices via email
+- Reminders for overdue invoices
 
-### Lönehantering
-- Hantera anställda
-- Lönekörningar
-- AGI XML-generering för skatteverket
-- Lönestatistik och rapporter
+### Payroll Management
+- Manage employees
+- Payroll runs
+- AGI XML generation for the Swedish Tax Agency
+- Payroll statistics and reports
 
-### Bankintegration
-- Importera banktransaktioner
-- Matcha transaktioner med kvitton
-- Duplikatkontroll
-- Transaktionshistorik
+### Bank Integration
+- Import bank transactions
+- Match transactions with receipts
+- Duplicate checking
+- Transaction history
 
-### AI-funktioner
-- Analysera kvitton med AI
-- Automatisk kategorisering
-- Chat-assistent för bokföringsfrågor
+### AI Features
+- Analyze receipts with AI
+- Automatic categorization
+- Chat assistant for bookkeeping questions
 
-## Teknisk stack
+## Tech Stack
 
-- **Framework**: Next.js 16 med App Router
-- **Språk**: TypeScript
-- **Database**: PostgreSQL med Drizzle ORM
-- **API**: tRPC med React Query
-- **Autentisering**: better-auth (magic link, e-post OTP, Google OAuth)
-- **Styling**: Tailwind CSS v4 + shadcn/ui komponenter
-- **Filhantering**: AWS S3
-- **AI**: Groq SDK med AI SDK
-- **Animationer**: Motion (Framer Motion)
-- **Tabeller**: TanStack Table
-- **Formulär**: React Hook Form + Zod
+- **Framework**: Next.js 16 with App Router
+- **Language**: TypeScript
+- **Database**: PostgreSQL with Drizzle ORM
+- **API**: tRPC with React Query
+- **Authentication**: better-auth (magic link, email OTP, Google OAuth)
+- **Styling**: Tailwind CSS v4 + shadcn/ui components
+- **File Storage**: AWS S3
+- **AI**: Groq SDK with AI SDK
+- **Animations**: Motion (Framer Motion)
+- **Tables**: TanStack Table
+- **Forms**: React Hook Form + Zod
 
-## Kom igång
+## Getting Started
 
-### Förutsättningar
+### Prerequisites
 
-- Node.js 20 eller senare
-- pnpm (eller npm/yarn)
-- PostgreSQL-databas
-- AWS S3-konto (för filuppladdningar)
-- Groq API-nyckel (för AI-funktioner)
+- Node.js 20 or later
+- pnpm (or npm/yarn)
+- PostgreSQL database
+- AWS S3 account (for file uploads)
+- Groq API key (for AI features)
 
 ### Installation
 
-1. Klona repot:
+1. Clone the repository:
 ```bash
 git clone <repository-url>
 cd kvitty-app
 ```
 
-2. Installera dependencies:
+2. Install dependencies:
 ```bash
 pnpm install
 ```
 
-3. Skapa en `.env`-fil baserat på `.env.example`:
+3. Create a `.env` file based on `.env.example`:
 ```bash
 cp .env.example .env
 ```
 
-4. Fyll i nödvändiga miljövariabler:
+4. Fill in the necessary environment variables:
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/kvitty
 BETTER_AUTH_SECRET=your-secret-key-here
@@ -106,86 +106,86 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 GROQ_API_KEY=your-groq-api-key
 ```
 
-5. Pusha databasschemat:
+5. Push the database schema:
 ```bash
 pnpm db:push
 ```
 
-6. Starta utvecklingsservern:
+6. Start the development server:
 ```bash
 pnpm dev
 ```
 
-Öppna [http://localhost:3000](http://localhost:3000) i din webbläsare.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Utvecklingskommandon
+## Development Commands
 
 ```bash
-# Utveckling
-pnpm dev              # Starta utvecklingsserver
-pnpm build            # Bygg för produktion
-pnpm start            # Starta produktionsserver
-pnpm lint             # Kör ESLint
-pnpm type-check       # TypeScript-typkontroll
+# Development
+pnpm dev              # Start development server
+pnpm build            # Build for production
+pnpm start            # Start production server
+pnpm lint             # Run ESLint
+pnpm type-check       # TypeScript type checking
 
-# Databas
-pnpm db:push          # Pusha schemändringar till databas
-pnpm db:generate      # Generera migrationer
-pnpm db:migrate       # Kör migrationer
-pnpm db:studio        # Öppna Drizzle Studio
-pnpm db:wipe          # Rensa databas
+# Database
+pnpm db:push          # Push schema changes to database
+pnpm db:generate      # Generate migrations
+pnpm db:migrate       # Run migrations
+pnpm db:studio        # Open Drizzle Studio
+pnpm db:wipe          # Wipe database
 
-# Demo-data
-pnpm demo:populate    # Fyll databas med demo-data
+# Demo data
+pnpm demo:populate    # Populate database with demo data
 ```
 
-## Projektstruktur
+## Project Structure
 
 ```
 kvitty-app/
 ├── app/                      # Next.js App Router
-│   ├── (auth)/              # Autentiseringssidor
-│   ├── (dash)/              # Dashboard (kräver auth)
-│   │   └── [workspaceSlug]/ # Workspace-scopade sidor
-│   ├── (web)/               # Publika marknadsföringssidor
-│   └── api/                 # API-routes
+│   ├── (auth)/              # Authentication pages
+│   ├── (dash)/              # Dashboard (requires auth)
+│   │   └── [workspaceSlug]/ # Workspace-scoped pages
+│   ├── (web)/               # Public marketing pages
+│   └── api/                 # API routes
 │       ├── auth/            # better-auth endpoints
 │       └── trpc/            # tRPC handler
-├── components/              # React-komponenter
-│   ├── ui/                  # shadcn/ui komponenter
-│   ├── invoices/            # Fakturakomponenter
-│   ├── bank/                # Bankkomponenter
+├── components/              # React components
+│   ├── ui/                  # shadcn/ui components
+│   ├── invoices/            # Invoice components
+│   ├── bank/                # Bank components
 │   └── ...
-├── lib/                     # Bibliotek och utilities
-│   ├── db/                  # Drizzle schema och konfiguration
-│   ├── trpc/                # tRPC-konfiguration och routers
-│   ├── validations/         # Zod-scheman
-│   └── auth.ts              # better-auth konfiguration
+├── lib/                     # Libraries and utilities
+│   ├── db/                  # Drizzle schema and configuration
+│   ├── trpc/                # tRPC configuration and routers
+│   ├── validations/         # Zod schemas
+│   └── auth.ts              # better-auth configuration
 ├── hooks/                   # React hooks
-├── scripts/                 # Utility-skript
-└── public/                  # Statiska filer
+├── scripts/                 # Utility scripts
+└── public/                  # Static files
 ```
 
-## Arkitektur
+## Architecture
 
-### Multi-tenant struktur
+### Multi-tenant Structure
 
-All affärsdata är workspace-scopad. Varje användare kan vara medlem i flera workspaces, och all data är isolerad per workspace.
+All business data is workspace-scoped. Each user can be a member of multiple workspaces, and all data is isolated per workspace.
 
-### Datamodell
+### Data Model
 
-Nyckelenheter:
-- **Workspaces**: Multi-tenant isolering med medlemmar/inbjudningar
-- **FiscalPeriods**: Räkenskapsår (kalenderår eller brutet år)
-- **JournalEntries/JournalEntryLines**: Dubbel bokföring (full mode)
-- **Verifications**: Enkel kvittohantering (simple mode)
-- **Invoices/InvoiceLines/Customers/Products**: Faktureringssystem
-- **Employees/PayrollRuns/PayrollEntries**: Lönehantering med AGI XML-generering
-- **BankAccounts/BankTransactions**: Bankintegration
+Key entities:
+- **Workspaces**: Multi-tenant isolation with members/invitations
+- **FiscalPeriods**: Fiscal years (calendar year or broken year)
+- **JournalEntries/JournalEntryLines**: Double-entry bookkeeping (full mode)
+- **Verifications**: Simple receipt management (simple mode)
+- **Invoices/InvoiceLines/Customers/Products**: Invoicing system
+- **Employees/PayrollRuns/PayrollEntries**: Payroll management with AGI XML generation
+- **BankAccounts/BankTransactions**: Bank integration
 
-### tRPC-mönster
+### tRPC Pattern
 
-Procedurer använder `workspaceProcedure` för workspace-scopade operationer som validerar medlemskap:
+Procedures use `workspaceProcedure` for workspace-scoped operations that validate membership:
 
 ```typescript
 import { workspaceProcedure } from "../init";
@@ -194,29 +194,29 @@ export const myRouter = router({
   list: workspaceProcedure
     .input(z.object({ workspaceId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // ctx.workspace är automatiskt validerat och tillgängligt
+      // ctx.workspace is automatically validated and available
     }),
 });
 ```
 
-### Autentisering
+### Authentication
 
-Applikationen använder better-auth med stöd för:
-- Magic link (länk via e-post)
-- E-post OTP (engångslösenord)
+The application uses better-auth with support for:
+- Magic link (link via email)
+- Email OTP (one-time password)
 - Google OAuth
 
 ### Routing
 
-- `app/(auth)/` - Publika autentiseringssidor
-- `app/(dash)/` - Skyddade dashboard-sidor
-  - `[workspaceSlug]/` - Workspace-scopade sidor
-    - `[periodSlug]/` - Räkenskapsperiod-scopade sidor
-- `app/(web)/` - Publika marknadsföringssidor
+- `app/(auth)/` - Public authentication pages
+- `app/(dash)/` - Protected dashboard pages
+  - `[workspaceSlug]/` - Workspace-scoped pages
+    - `[periodSlug]/` - Fiscal period-scoped pages
+- `app/(web)/` - Public marketing pages
 
-## Svenska kontext
+## Swedish Context
 
-Detta är en svensk bokföringsapplikation. Viktig terminologi:
+This is a Swedish bookkeeping application. Important terminology:
 - **Faktura** = Invoice
 - **Kund** = Customer
 - **Produkt** = Product
@@ -227,28 +227,28 @@ Detta är en svensk bokföringsapplikation. Viktig terminologi:
 - **AGI** = Arbetsgivardeklaration (employer tax declaration)
 - **BAS-kontoplan** = Swedish standard chart of accounts
 
-## Miljövariabler
+## Environment Variables
 
-Se `.env.example` för alla nödvändiga variabler:
+See `.env.example` for all necessary variables:
 
-- `DATABASE_URL` - PostgreSQL-anslutning
-- `BETTER_AUTH_SECRET` - Krypteringsnyckel för auth
-- `BETTER_AUTH_URL` - Base URL för auth (t.ex. http://localhost:3000)
-- `GOOGLE_CLIENT_ID/SECRET` - Google OAuth-uppgifter
-- `GROQ_API_KEY` - API-nyckel för AI-funktioner
-- AWS S3-konfiguration - Se `.env.example` för S3-relaterade variabler
+- `DATABASE_URL` - PostgreSQL connection
+- `BETTER_AUTH_SECRET` - Encryption key for auth
+- `BETTER_AUTH_URL` - Base URL for auth (e.g. http://localhost:3000)
+- `GOOGLE_CLIENT_ID/SECRET` - Google OAuth credentials
+- `GROQ_API_KEY` - API key for AI features
+- AWS S3 configuration - See `.env.example` for S3-related variables
 
-## Nice to have
+## Nice to Have
 
-### Skattetabeller
+### Tax Tables
 
-Skattetabeller kan hämtas från Skatteverkets öppna data:
+Tax tables can be fetched from the Swedish Tax Agency's open data:
 - Fetch: https://skatteverket.entryscape.net/rowstore/dataset/88320397-5c32-4c16-ae79-d36d95b17b95/json
 
-## Licens
+## License
 
-Se [LICENSE](LICENSE) för mer information.
+See [LICENSE](LICENSE) for more information.
 
-## Bidrag
+## Contributing
 
-Detta är en proof-of-concept/kul sak. För produktionskod, se [sajn.se](https://sajn.se) - en digital signeringstjänst utvecklad av sajn-se org.
+This is a proof-of-concept/fun project. For production code, see [sajn.se](https://sajn.se) - a digital signing service developed by sajn-se org.
