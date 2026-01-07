@@ -3,26 +3,30 @@ import { z } from "zod";
 // Swedish personal number validation (YYYYMMDDXXXX or YYMMDDXXXX)
 const personalNumberSchema = z
   .string()
-  .regex(
-    /^(\d{12}|\d{10})$/,
-    "Personnummer måste vara 10 eller 12 siffror"
-  )
-  .refine(
-    (val) => {
-      const cleaned = val.replace(/\D/g, "");
-      if (cleaned.length === 12) {
-        const month = parseInt(cleaned.substring(4, 6), 10);
-        const day = parseInt(cleaned.substring(6, 8), 10);
-        return month >= 1 && month <= 12 && day >= 1 && day <= 31;
-      }
-      if (cleaned.length === 10) {
-        const month = parseInt(cleaned.substring(2, 4), 10);
-        const day = parseInt(cleaned.substring(4, 6), 10);
-        return month >= 1 && month <= 12 && day >= 1 && day <= 31;
-      }
-      return false;
-    },
-    { message: "Ogiltigt personnummer" }
+  .transform((val) => val.replace(/\D/g, ""))
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^(\d{12}|\d{10})$/,
+        "Personnummer måste vara 10 eller 12 siffror"
+      )
+      .refine(
+        (val) => {
+          if (val.length === 12) {
+            const month = parseInt(val.substring(4, 6), 10);
+            const day = parseInt(val.substring(6, 8), 10);
+            return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+          }
+          if (val.length === 10) {
+            const month = parseInt(val.substring(2, 4), 10);
+            const day = parseInt(val.substring(4, 6), 10);
+            return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+          }
+          return false;
+        },
+        { message: "Ogiltigt personnummer" }
+      )
   );
 
 export const createEmployeeSchema = z.object({

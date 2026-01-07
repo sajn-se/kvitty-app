@@ -155,7 +155,7 @@ export function WorkspaceSettingsForm({
       name: data.name,
       slug: data.slug,
       businessType: data.businessType,
-      orgNumber: data.orgNumber || undefined,
+      orgNumber: data.orgNumber ? data.orgNumber.replace(/\D/g, "") : undefined,
       orgName: data.orgName || null,
       contactName: data.contactName || null,
       contactPhone: data.contactPhone || null,
@@ -275,13 +275,13 @@ export function WorkspaceSettingsForm({
                 <FieldLabel htmlFor="orgNumber">Organisationsnummer</FieldLabel>
                 <Input
                   id="orgNumber"
-                  placeholder="165592540321"
-                  maxLength={12}
+                  placeholder="XXXXXX-XXXX"
+                  maxLength={13}
                   disabled={isSubmitting}
                   {...register("orgNumber")}
                 />
                 <FieldDescription>
-                  10-12 siffror (t.ex. 165592540321)
+                  10-12 siffror (t.ex. 165592-5403)
                 </FieldDescription>
                 {errors.orgNumber && <FieldError errors={[errors.orgNumber]} />}
               </Field>

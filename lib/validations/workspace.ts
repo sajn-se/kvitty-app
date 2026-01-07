@@ -19,10 +19,18 @@ export type BusinessType = (typeof businessTypes)[number];
 
 // Swedish organization number validation (10 or 12 digits)
 const orgNumberSchema = z
-  .string()
-  .regex(/^\d{10,12}$/, "Organisationsnummer måste vara 10-12 siffror")
-  .optional()
-  .or(z.literal(""));
+  .union([
+    z.literal(""),
+    z
+      .string()
+      .transform((val) => val.replace(/\D/g, ""))
+      .pipe(
+        z
+          .string()
+          .regex(/^\d{10,12}$/, "Organisationsnummer måste vara 10-12 siffror")
+      ),
+  ])
+  .optional();
 
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1, "Namn krävs").max(100, "Namn får max vara 100 tecken"),

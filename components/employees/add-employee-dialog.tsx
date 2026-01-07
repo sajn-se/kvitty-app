@@ -89,7 +89,7 @@ export function AddEmployeeDialog({
 
     createEmployee.mutate({
       workspaceId,
-      personalNumber: form.personalNumber,
+      personalNumber: form.personalNumber.replace(/\D/g, ""),
       firstName: form.firstName,
       lastName: form.lastName,
       email: form.email || undefined,
@@ -122,10 +122,10 @@ export function AddEmployeeDialog({
                 id="personalNumber"
                 value={form.personalNumber}
                 onChange={(e) =>
-                  setForm({ ...form, personalNumber: e.target.value.replace(/\D/g, "") })
+                  setForm({ ...form, personalNumber: e.target.value })
                 }
-                placeholder="YYYYMMDDXXXX"
-                maxLength={12}
+                placeholder="YYYYMMDD-XXXX"
+                maxLength={13}
                 required
               />
             </Field>

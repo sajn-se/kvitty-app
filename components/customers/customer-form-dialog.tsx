@@ -129,7 +129,7 @@ export function CustomerFormDialog({
     e.preventDefault();
     const data = {
       name,
-      orgNumber,
+      orgNumber: orgNumber ? orgNumber.replace(/\D/g, "") : orgNumber,
       email,
       phone,
       address,

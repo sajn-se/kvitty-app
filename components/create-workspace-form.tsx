@@ -107,7 +107,7 @@ export function CreateWorkspaceForm({ userName }: CreateWorkspaceFormProps) {
       name,
       mode,
       businessType,
-      orgNumber: orgNumber || undefined,
+      orgNumber: orgNumber ? orgNumber.replace(/\D/g, "") : undefined,
       orgName: orgName || undefined,
       contactEmail: contactEmail || undefined,
     });
@@ -184,9 +184,9 @@ export function CreateWorkspaceForm({ userName }: CreateWorkspaceFormProps) {
                   type="text"
                   placeholder="XXXXXX-XXXX"
                   value={orgNumber}
-                  onChange={(e) => setOrgNumber(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setOrgNumber(e.target.value)}
                   disabled={createWorkspace.isPending}
-                  maxLength={12}
+                  maxLength={13}
                 />
               </Field>
 

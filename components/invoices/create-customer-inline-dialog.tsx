@@ -59,7 +59,7 @@ export function CreateCustomerInlineDialog({
     createCustomer.mutate({
       workspaceId,
       name,
-      orgNumber: orgNumber || undefined,
+      orgNumber: orgNumber ? orgNumber.replace(/\D/g, "") : undefined,
       email: email || undefined,
       phone: phone || undefined,
       address: address || undefined,
