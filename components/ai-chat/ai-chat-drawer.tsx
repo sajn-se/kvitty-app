@@ -83,7 +83,7 @@ export function AIChatDrawer({ onClose }: AIChatDrawerProps) {
         }
       } catch (error) {
         console.error("Chat error:", error);
-        updateLastMessage("Nagonting gick fel. Forsok igen.");
+        updateLastMessage("Något gick fel. Försök igen.");
       } finally {
         setIsStreaming(false);
       }

@@ -27,9 +27,11 @@ export function createChatTools(workspaceId: string, fiscalPeriodId?: string) {
   return {
     searchTransactions: tool({
       description:
-        "Sok efter transaktioner/verifikationer baserat pa beskrivning, datum eller andra kriterier",
+        "Sök efter transaktioner/verifikationer baserat på beskrivning, datum eller andra kriterier",
       parameters: searchTransactionsSchema,
-      execute: async ({ query, dateFrom, dateTo, limit }) => {
+      // @ts-ignore - AI SDK tool() has type inference issues with Zod schemas
+      execute: async (params: z.infer<typeof searchTransactionsSchema>) => {
+        const { query, dateFrom, dateTo, limit } = params;
         const conditions = [eq(journalEntries.workspaceId, workspaceId)];
 
         if (fiscalPeriodId) {
@@ -38,12 +40,13 @@ export function createChatTools(workspaceId: string, fiscalPeriodId?: string) {
 
         if (query && query.trim()) {
           const searchTerm = `%${query.trim()}%`;
-          conditions.push(
-            or(
-              ilike(journalEntries.description, searchTerm),
-              sql`CAST(${journalEntries.verificationNumber} AS TEXT) ILIKE ${searchTerm}`
-            )!
+          const searchCondition = or(
+            ilike(journalEntries.description, searchTerm),
+            sql`CAST(${journalEntries.verificationNumber} AS TEXT) ILIKE ${searchTerm}`
           );
+          if (searchCondition) {
+            conditions.push(searchCondition);
+          }
         }
 
         if (dateFrom) {
@@ -94,8 +97,10 @@ export function createChatTools(workspaceId: string, fiscalPeriodId?: string) {
     getAccountBalance: tool({
       description: "Hamta saldo for ett specifikt konto inom rakenskapsperioden",
       parameters: getAccountBalanceSchema,
-      execute: async ({ accountNumber, fiscalPeriodId: periodId }) => {
-        const targetPeriodId = periodId || fiscalPeriodId;
+      // @ts-ignore - AI SDK tool() has type inference issues with Zod schemas
+      execute: async (params: z.infer<typeof getAccountBalanceSchema>) => {
+        const { accountNumber, fiscalPeriodId: periodId } = params;
+        let targetPeriodId = periodId || fiscalPeriodId;
 
         if (!targetPeriodId) {
           // Get the current/latest period for this workspace
@@ -110,7 +115,15 @@ export function createChatTools(workspaceId: string, fiscalPeriodId?: string) {
               message: "Ingen rakenskapsperiod hittades.",
             };
           }
+
+          targetPeriodId = period.id;
         }
+
+        const whereConditions = [
+          eq(journalEntryLines.accountNumber, accountNumber),
+          eq(journalEntries.workspaceId, workspaceId),
+          eq(journalEntries.fiscalPeriodId, targetPeriodId),
+        ];
 
         const result = await db
           .select({
@@ -123,15 +136,7 @@ export function createChatTools(workspaceId: string, fiscalPeriodId?: string) {
             journalEntries,
             eq(journalEntryLines.journalEntryId, journalEntries.id)
           )
-          .where(
-            and(
-              eq(journalEntryLines.accountNumber, accountNumber),
-              eq(journalEntries.workspaceId, workspaceId),
-              targetPeriodId
-                ? eq(journalEntries.fiscalPeriodId, targetPeriodId)
-                : undefined
-            )
-          );
+          .where(and(...whereConditions));
 
         const data = result[0];
         const totalDebit = parseFloat(data?.totalDebit || "0");
