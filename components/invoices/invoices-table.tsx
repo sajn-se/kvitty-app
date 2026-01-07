@@ -32,7 +32,6 @@ interface Invoice {
   invoiceNumber: number;
   customer: {
     name: string;
-    contactPerson: string | null;
     email: string | null;
   };
   invoiceDate: string;
@@ -146,7 +145,6 @@ export function InvoicesTable({
         <TableRow>
           <TableHead className="px-4 w-24">Fakturanr</TableHead>
           <TableHead className="px-4">Kund</TableHead>
-          <TableHead className="px-4">Kontaktperson</TableHead>
           <TableHead className="px-4 text-right">Belopp (inkl moms)</TableHead>
           <TableHead className="px-4">Status</TableHead>
           <TableHead className="px-4 w-20">Bokförd</TableHead>
@@ -176,9 +174,6 @@ export function InvoicesTable({
                 >
                   {invoice.customer.name}
                 </Link>
-              </TableCell>
-              <TableCell className="px-4 text-muted-foreground">
-                {invoice.customer.contactPerson || "-"}
               </TableCell>
               <TableCell className="px-4 text-right font-mono">
                 {formatCurrency(invoice.total)}

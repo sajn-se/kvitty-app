@@ -1,17 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQueryState, parseAsString } from "nuqs";
+import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import Link from "next/link";
-import { Plus, FileText, CaretRight, CalendarBlank } from "@phosphor-icons/react";
+import { Plus, FileText, CaretRight, CalendarBlank, MagnifyingGlass, X } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -19,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   Table,
   TableBody,
@@ -27,13 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AddJournalEntryDialog } from "@/components/journal-entry/add-journal-entry-dialog";
+import { VerificationDetailSheet } from "@/components/bookkeeping/verification-detail-sheet";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { formatCurrency } from "@/lib/utils";
 
 interface BookkeepingPageClientProps {
@@ -41,13 +38,43 @@ interface BookkeepingPageClientProps {
   initialPeriodId: string;
 }
 
+const PAGE_SIZE = 20;
+
+type JournalEntry = {
+  id: string;
+  verificationNumber: number;
+  entryDate: string;
+  description: string;
+  entryType: string;
+  fiscalPeriodId: string;
+  createdAt?: Date | string;
+  createdByUser?: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+  lines: Array<{
+    id: string;
+    accountNumber: number;
+    accountName: string;
+    debit: string | null;
+    credit: string | null;
+    description: string | null;
+  }>;
+};
+
 export function BookkeepingPageClient({
   workspaceSlug,
   initialPeriodId,
 }: BookkeepingPageClientProps) {
   const { workspace, periods } = useWorkspace();
   const [periodId, setPeriodId] = useQueryState("periodId", parseAsString.withDefault(""));
+  const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [search, setSearch] = useQueryState("search", parseAsString.withDefault(""));
+  const [dateFrom, setDateFrom] = useQueryState("dateFrom", parseAsString.withDefault(""));
+  const [dateTo, setDateTo] = useQueryState("dateTo", parseAsString.withDefault(""));
   const [addEntryOpen, setAddEntryOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
 
   // Get current period - default to most recent if not specified
   const currentPeriodId = useMemo(() => {
@@ -68,40 +95,62 @@ export function BookkeepingPageClient({
   // Handle period change
   const handlePeriodChange = (newPeriodId: string) => {
     setPeriodId(newPeriodId);
+    setPage(1);
+    // Reset filters when changing period
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
   };
 
+  // Handle filter changes - reset page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value);
+    setPage(1);
+  };
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
+
+  const hasActiveFilters = search || dateFrom || dateTo;
+
   // Fetch journal entries for the selected period
-  const { data: entries, isLoading } = trpc.journalEntries.list.useQuery(
+  const { data, isLoading } = trpc.journalEntries.list.useQuery(
     {
       workspaceId: workspace.id,
       fiscalPeriodId: currentPeriodId,
-      limit: 100,
-      offset: 0,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+      search: search || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
     },
     {
       enabled: !!currentPeriodId,
     }
   );
 
+  const entries = data?.items;
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
   if (periods.length === 0) {
     return (
       <>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4 mt-1.5"
-            />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Bokforing</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </header>
+        <PageHeader currentPage="Bokföring" />
 
         <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
           <Card>
@@ -128,22 +177,7 @@ export function BookkeepingPageClient({
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4 mt-1.5"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage>Bokforing</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </header>
+      <PageHeader currentPage="Bokföring" />
 
       <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
         <div className="flex items-center justify-between">
@@ -175,20 +209,69 @@ export function BookkeepingPageClient({
           </div>
         </div>
 
-        {/* Period info */}
-        {currentPeriod && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CalendarBlank className="size-4" weight="duotone" />
-            <span>
-              {currentPeriod.startDate} - {currentPeriod.endDate}
-            </span>
-            <Badge variant="outline" className="ml-2">
-              {currentPeriod.fiscalYearType === "calendar"
-                ? "Kalenderår"
-                : "Brutet rakenskapsar"}
-            </Badge>
+        {/* Filters */}
+        <div className="flex flex-wrap items-end gap-4">
+          {/* Search */}
+          <div className="flex-1 min-w-[200px] max-w-sm">
+            <Label htmlFor="search" className="text-xs text-muted-foreground mb-1.5 block">
+              Sök
+            </Label>
+            <div className="relative">
+              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                id="search"
+                type="text"
+                placeholder="Sök på beskrivning eller verifikationsnummer..."
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-9"
+              />
+            </div>
           </div>
-        )}
+
+          {/* Date from */}
+          <div className="w-[160px]">
+            <Label htmlFor="dateFrom" className="text-xs text-muted-foreground mb-1.5 block">
+              Fran datum
+            </Label>
+            <Input
+              id="dateFrom"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => handleDateFromChange(e.target.value)}
+              min={currentPeriod?.startDate}
+              max={dateTo || currentPeriod?.endDate}
+            />
+          </div>
+
+          {/* Date to */}
+          <div className="w-[160px]">
+            <Label htmlFor="dateTo" className="text-xs text-muted-foreground mb-1.5 block">
+              Till datum
+            </Label>
+            <Input
+              id="dateTo"
+              type="date"
+              value={dateTo}
+              onChange={(e) => handleDateToChange(e.target.value)}
+              min={dateFrom || currentPeriod?.startDate}
+              max={currentPeriod?.endDate}
+            />
+          </div>
+
+          {/* Clear filters button */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-muted-foreground"
+            >
+              <X className="size-4 mr-1" />
+              Rensa filter
+            </Button>
+          )}
+        </div>
 
         {/* Loading state */}
         {isLoading && (
@@ -221,9 +304,6 @@ export function BookkeepingPageClient({
         {/* Journal entries table */}
         {!isLoading && entries && entries.length > 0 && (
           <>
-            <div className="text-sm text-muted-foreground">
-              {entries.length} verifikationer
-            </div>
             <Card>
               <Table>
                 <TableHeader>
@@ -247,6 +327,7 @@ export function BookkeepingPageClient({
                       <TableRow
                         key={entry.id}
                         className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setSelectedEntry(entry)}
                       >
                         <TableCell className="px-4 font-mono">
                           V{entry.verificationNumber}
@@ -277,6 +358,14 @@ export function BookkeepingPageClient({
                 </TableBody>
               </Table>
             </Card>
+            <TablePagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+              itemLabel="verifikationer"
+            />
           </>
         )}
       </div>
@@ -292,6 +381,14 @@ export function BookkeepingPageClient({
           defaultPeriodId={currentPeriodId}
         />
       )}
+
+      {/* Verification detail sheet */}
+      <VerificationDetailSheet
+        entry={selectedEntry}
+        workspaceId={workspace.id}
+        open={!!selectedEntry}
+        onOpenChange={(open) => !open && setSelectedEntry(null)}
+      />
     </>
   );
 }

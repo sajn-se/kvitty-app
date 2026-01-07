@@ -437,6 +437,7 @@ export function AddJournalEntryDialog({
               type="button"
               variant="ghost"
               size="icon-sm"
+              tabIndex={-1}
               onClick={toggleAIChat}
               className={cn(
                 "absolute top-2 right-12",

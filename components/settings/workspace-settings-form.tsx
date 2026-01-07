@@ -97,6 +97,7 @@ export function WorkspaceSettingsForm({
         : null,
       defaultPaymentMethod: workspace.defaultPaymentMethod ?? "",
       addOcrNumber: workspace.addOcrNumber ?? false,
+      vatReportingFrequency: workspace.vatReportingFrequency ?? "quarterly",
       inboxEmailSlug: workspace.inboxEmailSlug ?? "",
     },
   });
@@ -140,6 +141,7 @@ export function WorkspaceSettingsForm({
             : null,
           defaultPaymentMethod: updated.defaultPaymentMethod ?? "",
           addOcrNumber: updated.addOcrNumber ?? false,
+          vatReportingFrequency: updated.vatReportingFrequency ?? "quarterly",
           inboxEmailSlug: updated.inboxEmailSlug ?? "",
         });
         router.refresh();
@@ -172,6 +174,7 @@ export function WorkspaceSettingsForm({
       latePaymentInterest: data.latePaymentInterest,
       defaultPaymentMethod: data.defaultPaymentMethod || null,
       addOcrNumber: data.addOcrNumber,
+      vatReportingFrequency: data.vatReportingFrequency || null,
       inboxEmailSlug: data.inboxEmailSlug || null,
     });
   }
@@ -598,6 +601,50 @@ export function WorkspaceSettingsForm({
                   )}
                 />
               </div>
+            </FieldGroup>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Momsrapportering</CardTitle>
+            <CardDescription>
+              Frekvens för momsrapportering till Skatteverket
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <Controller
+                name="vatReportingFrequency"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="vatReportingFrequency">
+                      Momsrapporteringsfrekvens
+                    </FieldLabel>
+                    <Select
+                      value={field.value ?? "quarterly"}
+                      onValueChange={(v) => field.onChange(v)}
+                      disabled={isSubmitting}
+                    >
+                      <SelectTrigger id="vatReportingFrequency" className="w-full">
+                        <SelectValue placeholder="Välj frekvens" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Månadsvis</SelectItem>
+                        <SelectItem value="quarterly">Kvartalsvis</SelectItem>
+                        <SelectItem value="yearly">Årsvis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      Hur ofta du rapporterar moms till Skatteverket
+                    </FieldDescription>
+                    {fieldState.error && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
             </FieldGroup>
           </CardContent>
         </Card>

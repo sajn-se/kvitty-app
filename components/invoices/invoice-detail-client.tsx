@@ -242,6 +242,7 @@ export function InvoiceDetailClient({ invoiceId }: InvoiceDetailClientProps) {
         invoiceId={invoiceId}
         workspaceId={workspace.id}
         customerEmail={invoice.customer.email}
+        customerContacts={invoice.customer.contacts}
         invoiceNumber={invoice.invoiceNumber}
         shareToken={invoice.shareToken}
         sentMethod={invoice.sentMethod}

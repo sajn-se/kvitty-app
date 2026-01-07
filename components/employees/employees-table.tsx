@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { calculateAgeFromPersonnummer } from "@/lib/utils";
 
 interface Employee {
@@ -78,12 +83,19 @@ export function EmployeesTable({
               {employee.email ? (
                 <div className="flex items-center gap-2">
                   {employee.email}
-                  <a
-                    href={`mailto:${employee.email}`}
-                    className="hover:opacity-70"
-                  >
-                    <EnvelopeSimple className="size-4" />
-                  </a>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <a
+                        href={`mailto:${employee.email}`}
+                        className="hover:opacity-70"
+                      >
+                        <EnvelopeSimple className="size-4" />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Öppna e-post
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               ) : (
                 "-"
@@ -93,12 +105,19 @@ export function EmployeesTable({
               {employee.phone ? (
                 <div className="flex items-center gap-2">
                   {employee.phone}
-                  <a
-                    href={`sms:${employee.phone}`}
-                    className="hover:opacity-70"
-                  >
-                    <ChatText className="size-4" />
-                  </a>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <a
+                        href={`sms:${employee.phone}`}
+                        className="hover:opacity-70"
+                      >
+                        <ChatText className="size-4" />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Skicka SMS
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               ) : (
                 "-"

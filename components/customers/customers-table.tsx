@@ -19,13 +19,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TablePagination } from "@/components/ui/table-pagination";
-import type { Customer } from "@/lib/db/schema";
+import type { Customer, CustomerContact } from "@/lib/db/schema";
 import { useWorkspace } from "@/components/workspace-provider";
 
+type CustomerWithContacts = Customer & {
+  contacts?: CustomerContact[];
+};
+
 interface CustomersTableProps {
-  customers: Customer[];
-  onEdit: (customer: Customer) => void;
-  onDelete: (customer: Customer) => void;
+  customers: CustomerWithContacts[];
+  onEdit: (customer: CustomerWithContacts) => void;
+  onDelete: (customer: CustomerWithContacts) => void;
+  onCreateInvoice: (customer: CustomerWithContacts) => void;
   page: number;
   totalPages: number;
   total: number;
@@ -36,6 +41,7 @@ export function CustomersTable({
   customers,
   onEdit,
   onDelete,
+  onCreateInvoice,
   page,
   totalPages,
   total,
@@ -51,6 +57,7 @@ export function CustomersTable({
         <TableRow>
           <TableHead className="px-4">Namn</TableHead>
           <TableHead className="px-4">Org.nr</TableHead>
+          <TableHead className="px-4">Primär kontakt</TableHead>
           <TableHead className="px-4">E-post</TableHead>
           <TableHead className="px-4">Telefon</TableHead>
           <TableHead className="px-4">Ort</TableHead>
@@ -58,10 +65,13 @@ export function CustomersTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {customers.map((customer) => (
+        {customers.map((customer) => {
+          const primaryContact = customer.contacts?.[0];
+          return (
           <TableRow key={customer.id}>
             <TableCell className="px-4 font-medium">{customer.name}</TableCell>
             <TableCell className="px-4 font-mono text-sm">{customer.orgNumber || "-"}</TableCell>
+            <TableCell className="px-4">{primaryContact?.name || "-"}</TableCell>
             <TableCell className="px-4">{customer.email || "-"}</TableCell>
             <TableCell className="px-4">{customer.phone || "-"}</TableCell>
             <TableCell className="px-4">{customer.city || "-"}</TableCell>
@@ -80,12 +90,10 @@ export function CustomersTable({
                 <Button
                   variant="ghost"
                   size="icon"
-                  asChild
                   title="Skapa faktura"
+                  onClick={() => onCreateInvoice(customer)}
                 >
-                  <Link href={`/${workspace.slug}/fakturor?newInvoice=true&customerId=${customer.id}`}>
-                    <Invoice className="size-4" />
-                  </Link>
+                  <Invoice className="size-4" />
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -115,7 +123,8 @@ export function CustomersTable({
               </div>
             </TableCell>
           </TableRow>
-        ))}
+          );
+        })}
       </TableBody>
     </Table>
     </div>

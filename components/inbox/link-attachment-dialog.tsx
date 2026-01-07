@@ -38,7 +38,9 @@ export function LinkAttachmentDialog({
   workspaceMode,
 }: Props) {
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"verifications" | "transactions">("verifications");
+  const [activeTab, setActiveTab] = useState<"verifications" | "transactions">(
+    workspaceMode === "full_bookkeeping" ? "verifications" : "transactions"
+  );
   const utils = trpc.useUtils();
   const { periods, workspace } = useWorkspace();
 
@@ -58,13 +60,15 @@ export function LinkAttachmentDialog({
   const bankTransactions = bankTransactionsData?.items;
 
   const {
-    data: journalEntries,
+    data: journalEntriesData,
     isLoading: isLoadingEntries,
     error: entriesError,
   } = trpc.journalEntries.list.useQuery(
     { workspaceId, fiscalPeriodId: latestPeriod?.id ?? "" },
     { enabled: open && !!latestPeriod }
   );
+
+  const journalEntries = journalEntriesData?.items;
 
   const linkMutation = trpc.inbox.linkAttachment.useMutation({
     onSuccess: () => {
@@ -85,7 +89,7 @@ export function LinkAttachmentDialog({
   );
 
   const filteredEntries = journalEntries?.filter(
-    (e) =>
+    (e: { description: string; verificationNumber: number }) =>
       e.description?.toLowerCase().includes(search.toLowerCase()) ||
       e.verificationNumber?.toString().includes(search)
   );
@@ -108,8 +112,12 @@ export function LinkAttachmentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "verifications" | "transactions")}>
-          <TabsList className="w-full">
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(v) => setActiveTab(v as "verifications" | "transactions")}
+          className="flex flex-col flex-1 overflow-hidden"
+        >
+          <TabsList className="w-full shrink-0">
             <TabsTrigger value="verifications" className="flex-1">
               Verifikationer
             </TabsTrigger>
@@ -118,7 +126,7 @@ export function LinkAttachmentDialog({
             </TabsTrigger>
           </TabsList>
 
-          <div className="relative mt-4">
+          <div className="relative mt-4 shrink-0">
             <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder={`Sök ${activeTab === "verifications" ? "verifikationer" : "transaktioner"}...`}
@@ -128,7 +136,7 @@ export function LinkAttachmentDialog({
             />
           </div>
 
-          <TabsContent value="verifications" className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 mt-4">
+          <TabsContent value="verifications" className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 mt-4 data-[state=active]:flex data-[state=active]:flex-col">
             {entriesError ? (
               <div className="text-center py-8">
                 <WarningCircle className="size-8 mx-auto mb-2 text-destructive opacity-70" />
@@ -159,7 +167,7 @@ export function LinkAttachmentDialog({
               </p>
             ) : (
               <div className="space-y-2">
-                {filteredEntries?.slice(0, 20).map((entry) => (
+                {filteredEntries?.slice(0, 20).map((entry: { id: string; verificationNumber: number; entryDate: string; description: string }) => (
                   <button
                     key={entry.id}
                     onClick={() => handleLink(entry.id, "verification")}
@@ -191,7 +199,7 @@ export function LinkAttachmentDialog({
             )}
           </TabsContent>
 
-          <TabsContent value="transactions" className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 mt-4">
+          <TabsContent value="transactions" className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 mt-4 data-[state=active]:flex data-[state=active]:flex-col">
             {transactionsError ? (
               <div className="text-center py-8">
                 <WarningCircle className="size-8 mx-auto mb-2 text-destructive opacity-70" />
@@ -247,7 +255,7 @@ export function LinkAttachmentDialog({
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end pt-4 border-t">
+        <div className="flex justify-end pt-4 border-t shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Avbryt
           </Button>

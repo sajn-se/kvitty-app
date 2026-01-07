@@ -140,6 +140,7 @@ export const workspacesRouter = router({
           }),
           ...(input.defaultPaymentMethod !== undefined && { defaultPaymentMethod: input.defaultPaymentMethod || null }),
           ...(input.addOcrNumber !== undefined && { addOcrNumber: input.addOcrNumber }),
+          ...(input.vatReportingFrequency !== undefined && { vatReportingFrequency: input.vatReportingFrequency || null }),
           // Email inbox settings
           ...(input.inboxEmailSlug !== undefined && { inboxEmailSlug: input.inboxEmailSlug || null }),
           updatedAt: new Date(),

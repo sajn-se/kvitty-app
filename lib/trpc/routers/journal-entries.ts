@@ -8,7 +8,7 @@ import {
   fiscalPeriods,
   auditLogs,
 } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, count, ilike, gte, lte, or } from "drizzle-orm";
 import {
   createJournalEntrySchema,
   updateJournalEntrySchema,
@@ -20,28 +20,61 @@ export const journalEntriesRouter = router({
     .input(
       z.object({
         fiscalPeriodId: z.string(),
-        limit: z.number().min(1).max(100).default(50),
+        limit: z.number().min(1).max(100).default(20),
         offset: z.number().min(0).default(0),
+        search: z.string().optional(),
+        dateFrom: z.string().optional(), // YYYY-MM-DD
+        dateTo: z.string().optional(), // YYYY-MM-DD
       })
     )
     .query(async ({ ctx, input }) => {
-      const entries = await ctx.db.query.journalEntries.findMany({
-        where: and(
-          eq(journalEntries.workspaceId, ctx.workspaceId),
-          eq(journalEntries.fiscalPeriodId, input.fiscalPeriodId)
-        ),
-        with: {
-          lines: {
-            orderBy: (lines, { asc }) => [asc(lines.sortOrder)],
-          },
-          createdByUser: true,
-        },
-        orderBy: [desc(journalEntries.verificationNumber)],
-        limit: input.limit,
-        offset: input.offset,
-      });
+      const conditions = [
+        eq(journalEntries.workspaceId, ctx.workspaceId),
+        eq(journalEntries.fiscalPeriodId, input.fiscalPeriodId),
+      ];
 
-      return entries;
+      // Search filter - search in description or verification number
+      if (input.search && input.search.trim()) {
+        const searchTerm = `%${input.search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(journalEntries.description, searchTerm),
+            // Also search by verification number (V1, V2, etc.)
+            sql`CAST(${journalEntries.verificationNumber} AS TEXT) ILIKE ${searchTerm}`
+          )!
+        );
+      }
+
+      // Date range filter
+      if (input.dateFrom) {
+        conditions.push(gte(journalEntries.entryDate, input.dateFrom));
+      }
+      if (input.dateTo) {
+        conditions.push(lte(journalEntries.entryDate, input.dateTo));
+      }
+
+      const whereClause = and(...conditions);
+
+      const [entries, totalResult] = await Promise.all([
+        ctx.db.query.journalEntries.findMany({
+          where: whereClause,
+          with: {
+            lines: {
+              orderBy: (lines, { asc }) => [asc(lines.sortOrder)],
+            },
+            createdByUser: true,
+          },
+          orderBy: [desc(journalEntries.verificationNumber)],
+          limit: input.limit,
+          offset: input.offset,
+        }),
+        ctx.db.select({ count: count() }).from(journalEntries).where(whereClause),
+      ]);
+
+      return {
+        items: entries,
+        total: totalResult[0]?.count ?? 0,
+      };
     }),
 
   get: workspaceProcedure
@@ -66,6 +99,24 @@ export const journalEntriesRouter = router({
       }
 
       return entry;
+    }),
+
+  getAuditLogs: workspaceProcedure
+    .input(z.object({ entityId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const logs = await ctx.db.query.auditLogs.findMany({
+        where: and(
+          eq(auditLogs.workspaceId, ctx.workspaceId),
+          eq(auditLogs.entityId, input.entityId),
+          eq(auditLogs.entityType, "journal_entry")
+        ),
+        with: {
+          user: true,
+        },
+        orderBy: [desc(auditLogs.timestamp)],
+      });
+
+      return logs;
     }),
 
   getNextNumber: workspaceProcedure

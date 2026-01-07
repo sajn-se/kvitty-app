@@ -451,8 +451,9 @@ export const attachments = pgTable("attachments", {
 export const comments = pgTable("comments", {
   id: text("id").primaryKey().$defaultFn(() => createCuid()),
   bankTransactionId: text("bank_transaction_id")
-    .notNull()
     .references(() => bankTransactions.id, { onDelete: "cascade" }),
+  journalEntryId: text("journal_entry_id")
+    .references(() => journalEntries.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: text("created_by")
@@ -658,9 +659,8 @@ export const customers = pgTable("customers", {
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  contactPerson: text("contact_person"), // Kontaktperson
   orgNumber: text("org_number"),
-  email: text("email"),
+  email: text("email"), // Company email
   phone: text("phone"),
   address: text("address"),
   postalCode: text("postal_code"),
@@ -668,6 +668,21 @@ export const customers = pgTable("customers", {
   // Delivery preferences
   preferredDeliveryMethod: text("preferred_delivery_method"), // "email_pdf" | "email_link" | "manual" | "e_invoice"
   einvoiceAddress: text("einvoice_address"), // Peppol ID or similar for e-invoicing
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Customer contacts for multi-contact support
+export const customerContacts = pgTable("customer_contacts", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  customerId: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  role: text("role"), // Free-text role (e.g., "Ekonomiansvarig", "VD", "Fakturaansvarig")
+  email: text("email"),
+  phone: text("phone"),
+  isPrimary: boolean("is_primary").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1016,6 +1031,10 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     fields: [comments.bankTransactionId],
     references: [bankTransactions.id],
   }),
+  journalEntry: one(journalEntries, {
+    fields: [comments.journalEntryId],
+    references: [journalEntries.id],
+  }),
   createdByUser: one(user, {
     fields: [comments.createdBy],
     references: [user.id],
@@ -1057,6 +1076,7 @@ export const journalEntriesRelations = relations(
       references: [fiscalPeriods.id],
     }),
     attachments: many(journalEntryAttachments),
+    comments: many(comments),
     createdByUser: one(user, {
       fields: [journalEntries.createdBy],
       references: [user.id],
@@ -1155,6 +1175,14 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
     references: [workspaces.id],
   }),
   invoices: many(invoices),
+  contacts: many(customerContacts),
+}));
+
+export const customerContactsRelations = relations(customerContacts, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customerContacts.customerId],
+    references: [customers.id],
+  }),
 }));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
@@ -1241,6 +1269,9 @@ export type FiscalYearType = (typeof fiscalYearTypeEnum.enumValues)[number];
 
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;
+
+export type CustomerContact = typeof customerContacts.$inferSelect;
+export type NewCustomerContact = typeof customerContacts.$inferInsert;
 
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;

@@ -70,6 +70,7 @@ export const updateWorkspaceSchema = z.object({
   latePaymentInterest: z.number().min(0).max(100).optional().nullable(),
   defaultPaymentMethod: z.string().max(50).optional().nullable(),
   addOcrNumber: z.boolean().optional().nullable(),
+  vatReportingFrequency: z.enum(["monthly", "quarterly", "yearly"]).optional().nullable(),
   // Email inbox settings
   inboxEmailSlug: z
     .string()

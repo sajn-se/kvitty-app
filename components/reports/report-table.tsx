@@ -94,7 +94,7 @@ export function ReportTable({
                     row.isTotal && "font-bold"
                   )}
                 >
-                  {formatCurrency(row.amount)}
+                  {formatCurrency(row.amount ?? 0)}
                 </TableCell>
               </TableRow>
             ))}
@@ -112,7 +112,7 @@ export function ReportTable({
                     group.subtotal < 0 && "text-red-600"
                   )}
                 >
-                  {formatCurrency(group.subtotal)}
+                  {formatCurrency(group.subtotal ?? 0)}
                 </TableCell>
               </TableRow>
             )}
@@ -130,7 +130,7 @@ export function ReportTable({
                 total < 0 && "text-red-600"
               )}
             >
-              {formatCurrency(total)}
+              {formatCurrency(total ?? 0)}
             </TableCell>
           </TableRow>
         )}

@@ -202,7 +202,13 @@ export const invoicesRouter = router({
           eq(invoices.workspaceId, ctx.workspaceId)
         ),
         with: {
-          customer: true,
+          customer: {
+            with: {
+              contacts: {
+                orderBy: (c, { asc, desc }) => [desc(c.isPrimary), asc(c.name)],
+              },
+            },
+          },
           lines: {
             orderBy: (l, { asc }) => [asc(l.sortOrder)],
             with: {
@@ -1368,7 +1374,7 @@ export const invoicesRouter = router({
       z.object({
         id: z.string(),
         sendMethod: z.enum(["pdf", "link"]),
-        email: z.string().email(),
+        emails: z.array(z.string().email()).min(1, "Minst en e-postadress krävs"),
         subject: z.string().optional(),
         message: z.string().optional(),
         createVerification: z.boolean().default(false),
@@ -1554,51 +1560,60 @@ export const invoicesRouter = router({
         ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/faktura/${existing.id}?token=${shareToken}`
         : undefined;
 
-      try {
-        if (input.sendMethod === "pdf") {
-          await sendInvoiceEmailWithPdf({
-            to: input.email,
-            invoice: existing,
-            customer: existing.customer,
-            workspace,
-            invoiceLines: existing.lines.map((line) => ({
-              description: line.description,
-              quantity: line.quantity,
-              unitPrice: line.unitPrice,
-              vatRate: line.vatRate,
-              amount: line.amount,
-            })),
+      // Send to all email recipients
+      const failedEmails: string[] = [];
+      for (const email of input.emails) {
+        try {
+          if (input.sendMethod === "pdf") {
+            await sendInvoiceEmailWithPdf({
+              to: email,
+              invoice: existing,
+              customer: existing.customer,
+              workspace,
+              invoiceLines: existing.lines.map((line) => ({
+                description: line.description,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+                vatRate: line.vatRate,
+                amount: line.amount,
+              })),
+            });
+          } else {
+            await sendInvoiceEmailWithLink({
+              to: email,
+              invoice: existing,
+              customer: existing.customer,
+              workspace,
+              invoiceLines: existing.lines.map((line) => ({
+                description: line.description,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+                vatRate: line.vatRate,
+                amount: line.amount,
+              })),
+              invoiceUrl,
+            });
+          }
+        } catch (error) {
+          console.error("[Invoice sendInvoice] Email sending failed", {
+            error: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            invoiceId: input.id,
+            invoiceNumber: existing.invoiceNumber,
+            workspaceId: ctx.workspaceId,
+            sendMethod: input.sendMethod,
+            recipientEmail: email,
+            timestamp: new Date().toISOString(),
           });
-        } else {
-          await sendInvoiceEmailWithLink({
-            to: input.email,
-            invoice: existing,
-            customer: existing.customer,
-            workspace,
-            invoiceLines: existing.lines.map((line) => ({
-              description: line.description,
-              quantity: line.quantity,
-              unitPrice: line.unitPrice,
-              vatRate: line.vatRate,
-              amount: line.amount,
-            })),
-            invoiceUrl,
-          });
+          failedEmails.push(email);
         }
-      } catch (error) {
-        console.error("[Invoice sendInvoice] Email sending failed", {
-          error: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-          invoiceId: input.id,
-          invoiceNumber: existing.invoiceNumber,
-          workspaceId: ctx.workspaceId,
-          sendMethod: input.sendMethod,
-          recipientEmail: input.email,
-          timestamp: new Date().toISOString(),
-        });
+      }
+
+      // If all emails failed, throw an error
+      if (failedEmails.length === input.emails.length) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Kunde inte skicka e-post",
+          message: "Kunde inte skicka e-post till någon mottagare",
         });
       }
 
@@ -1626,7 +1641,7 @@ export const invoicesRouter = router({
           invoiceId: input.id,
           workspaceId: ctx.workspaceId,
           sendMethod: input.sendMethod,
-          recipientEmail: input.email,
+          recipientEmails: input.emails,
           timestamp: new Date().toISOString(),
         });
         throw new TRPCError({

@@ -4,16 +4,7 @@ import { db } from "@/lib/db";
 import { workspaces, employees, payrollEntries, payrollRuns } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getSession } from "@/lib/session";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { decrypt } from "@/lib/utils/encryption";
@@ -125,30 +116,10 @@ export default async function PersonalDetailPage({
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4 flex-1">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4 mt-1.5"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href={`/${workspaceSlug}/personal`}>
-                  Personal
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>
-                  {employee.firstName} {employee.lastName}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-        <div className="px-4">
+      <PageHeader
+        breadcrumbs={[{ label: "Personal", href: `/${workspaceSlug}/personal` }]}
+        currentPage={`${employee.firstName} ${employee.lastName}`}
+        actions={
           <PersonalDetailActions
             employee={{
               id: employee.id,
@@ -166,8 +137,8 @@ export default async function PersonalDetailPage({
               isActive: employee.isActive,
             }}
           />
-        </div>
-      </header>
+        }
+      />
 
       <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
         <div>

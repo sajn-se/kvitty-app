@@ -110,11 +110,8 @@ export function WorkspaceSwitcher({
             <DropdownMenuItem asChild>
               <Link href={`/${currentWorkspace.slug}/medlemmar`} className="flex items-center gap-2">
                 <Users className="size-4" weight="duotone" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-medium">Medlemmar</span>
-                  <span className="text-xs text-muted-foreground">
-                    {memberCount} {memberCount === 1 ? "medlem" : "medlemmar"}
-                  </span>
+                <div className="flex flex-row items-center gap-1 justify-between flex-1 min-w-0">
+                  <span className="font-medium">Medlemmar</span>{" "}<span className=" text-muted-foreground">({memberCount})</span>
                 </div>
               </Link>
             </DropdownMenuItem>
@@ -123,11 +120,6 @@ export function WorkspaceSwitcher({
                 <Gear className="size-4" weight="duotone" />
                 <div className="flex flex-col flex-1 min-w-0">
                   <span className="font-medium">Inställningar</span>
-                  <span className="text-xs text-muted-foreground">
-                    {currentWorkspace.mode === "full_bookkeeping"
-                      ? "Fullständig bokföring"
-                      : "Enkel bokföring"}
-                  </span>
                 </div>
               </Link>
             </DropdownMenuItem>

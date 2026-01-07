@@ -4,20 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { PageHeader } from "@/components/layout/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
-import Link from "next/link";
 import { AccountTransactionsTable } from "@/components/bank/account-transactions-table";
 
 const PAGE_SIZE = 50;
@@ -74,30 +64,10 @@ export function AccountDetailClient({ accountNumber, workspaceSlug }: AccountDet
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4 mt-1.5"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href={`/${workspaceSlug}/bank`}>Bankkonton</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>
-                  {account.accountNumber} - {account.name}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </header>
+      <PageHeader
+        breadcrumbs={[{ label: "Bankkonton", href: `/${workspaceSlug}/bank` }]}
+        currentPage={`${account.accountNumber} - ${account.name}`}
+      />
 
       <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
         <div>

@@ -10,6 +10,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import type { Customer } from "@/lib/db/schema";
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog";
 import { CustomersTable } from "@/components/customers/customers-table";
+import { CreateInvoiceDialog } from "@/components/invoices/create-invoice-dialog";
 
 const PAGE_SIZE = 20;
 
@@ -17,6 +18,7 @@ export function CustomersPageClient() {
   const { workspace } = useWorkspace();
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [invoiceCustomerId, setInvoiceCustomerId] = useState<string | null>(null);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const utils = trpc.useUtils();
 
@@ -71,6 +73,7 @@ export function CustomersPageClient() {
           onDelete={(customer) => {
             deleteCustomer.mutate({ workspaceId: workspace.id, id: customer.id });
           }}
+          onCreateInvoice={(customer) => setInvoiceCustomerId(customer.id)}
           page={page}
           totalPages={totalPages}
           total={total}
@@ -90,6 +93,13 @@ export function CustomersPageClient() {
         open={!!editingCustomer}
         onOpenChange={(open) => !open && setEditingCustomer(null)}
         customer={editingCustomer}
+      />
+
+      <CreateInvoiceDialog
+        workspaceId={workspace.id}
+        open={!!invoiceCustomerId}
+        onOpenChange={(open) => !open && setInvoiceCustomerId(null)}
+        initialCustomerId={invoiceCustomerId || undefined}
       />
     </div>
   );
