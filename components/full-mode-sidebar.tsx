@@ -23,6 +23,7 @@ import {
   CaretDown,
   UploadSimple,
   FileText,
+  Wallet,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -94,6 +95,7 @@ export function FullModeSidebar({
   const router = useRouter();
   const [addPeriodOpen, setAddPeriodOpen] = useState(false);
   const [addEntryOpen, setAddEntryOpen] = useState(false);
+  const [initialEntryType, setInitialEntryType] = useState<"kvitto" | "inkomst" | "leverantorsfaktura" | "utlagg" | "annat" | undefined>(undefined);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [addBankTransactionOpen, setAddBankTransactionOpen] = useState(false);
   const [menuExpanded, setMenuExpanded] = useState(true);
@@ -215,7 +217,10 @@ export function FullModeSidebar({
                 <UploadSimple className="size-4" weight="duotone" />
                 {isAnalyzing ? "Analyserar..." : "Ladda upp underlag"}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAddEntryOpen(true)}>
+              <DropdownMenuItem onClick={() => {
+                setInitialEntryType(undefined);
+                setAddEntryOpen(true);
+              }}>
                 <FileText className="size-4" weight="duotone" />
                 Utan underlag
               </DropdownMenuItem>
@@ -234,6 +239,13 @@ export function FullModeSidebar({
                   <Money className="size-4" weight="duotone" />
                   Lön
                 </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setInitialEntryType("utlagg");
+                setAddEntryOpen(true);
+              }}>
+                <Wallet className="size-4" weight="duotone" />
+                Utlägg
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -590,12 +602,14 @@ export function FullModeSidebar({
             setAddEntryOpen(open);
             if (!open) {
               setAnalyzedData(null);
+              setInitialEntryType(undefined);
             }
           }}
           initialFiles={analyzedData?.files}
           initialDescription={analyzedData?.description}
           initialLines={analyzedData?.lines}
           initialEntryDate={analyzedData?.entryDate}
+          initialEntryType={initialEntryType}
         />
       )}
 
