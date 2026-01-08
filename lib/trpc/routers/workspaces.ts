@@ -36,6 +36,17 @@ export const workspacesRouter = router({
   create: protectedProcedure
     .input(createWorkspaceSchema)
     .mutation(async ({ ctx, input }) => {
+      const userWorkspaces = await ctx.db.query.workspaceMembers.findMany({
+        where: eq(workspaceMembers.userId, ctx.session.user.id),
+      });
+
+      if (userWorkspaces.length >= 10) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Maximalt 10 arbetsytor tillåtna",
+        });
+      }
+
       const slug = await generateUniqueSlug();
 
       // Generate inbox email prefix from workspace name
@@ -139,8 +150,12 @@ export const workspacesRouter = router({
             latePaymentInterest: input.latePaymentInterest?.toString() ?? null,
           }),
           ...(input.defaultPaymentMethod !== undefined && { defaultPaymentMethod: input.defaultPaymentMethod || null }),
+          ...(input.defaultUtlaggAccount !== undefined && { defaultUtlaggAccount: input.defaultUtlaggAccount }),
           ...(input.addOcrNumber !== undefined && { addOcrNumber: input.addOcrNumber }),
           ...(input.vatReportingFrequency !== undefined && { vatReportingFrequency: input.vatReportingFrequency || null }),
+          // VAT compliance
+          ...(input.vatNumber !== undefined && { vatNumber: input.vatNumber || null }),
+          ...(input.isVatExempt !== undefined && { isVatExempt: input.isVatExempt ?? false }),
           // Email inbox settings
           ...(input.inboxEmailSlug !== undefined && { inboxEmailSlug: input.inboxEmailSlug || null }),
           updatedAt: new Date(),
@@ -168,5 +183,39 @@ export const workspacesRouter = router({
     await ctx.db.delete(workspaces).where(eq(workspaces.id, ctx.workspaceId));
 
     return { success: true };
+  }),
+
+  // Generate VAT number from organization number
+  generateVatNumber: workspaceProcedure.mutation(async ({ ctx }) => {
+    const workspace = await ctx.db.query.workspaces.findFirst({
+      where: eq(workspaces.id, ctx.workspaceId),
+    });
+
+    if (!workspace) {
+      throw new TRPCError({ code: "NOT_FOUND" });
+    }
+
+    if (!workspace.orgNumber) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Organisationsnummer krävs för att generera VAT-nummer",
+      });
+    }
+
+    // Format: SE + 10-digit org number + "01"
+    // Swedish org numbers are 10-12 digits, normalize to 10
+    const cleanOrgNumber = workspace.orgNumber.replace(/\D/g, "").slice(0, 10).padStart(10, "0");
+    const vatNumber = `SE${cleanOrgNumber}01`;
+
+    const [updated] = await ctx.db
+      .update(workspaces)
+      .set({
+        vatNumber,
+        updatedAt: new Date(),
+      })
+      .where(eq(workspaces.id, ctx.workspaceId))
+      .returning();
+
+    return updated;
   }),
 });

@@ -77,6 +77,15 @@ export const customersRouter = router({
           address: input.address || null,
           postalCode: input.postalCode || null,
           city: input.city || null,
+          // VAT/B2B fields
+          vatNumber: input.vatNumber || null,
+          countryCode: input.countryCode || "SE",
+          // ROT/RUT fields
+          personalNumber: input.personalNumber || null,
+          propertyDesignation: input.propertyDesignation || null,
+          apartmentNumber: input.apartmentNumber || null,
+          housingAssociationOrgNumber: input.housingAssociationOrgNumber || null,
+          // Delivery preferences
           preferredDeliveryMethod: input.preferredDeliveryMethod || null,
           einvoiceAddress: input.einvoiceAddress || null,
         })
@@ -109,6 +118,15 @@ export const customersRouter = router({
           address: input.address || null,
           postalCode: input.postalCode || null,
           city: input.city || null,
+          // VAT/B2B fields
+          vatNumber: input.vatNumber || null,
+          countryCode: input.countryCode || "SE",
+          // ROT/RUT fields
+          personalNumber: input.personalNumber || null,
+          propertyDesignation: input.propertyDesignation || null,
+          apartmentNumber: input.apartmentNumber || null,
+          housingAssociationOrgNumber: input.housingAssociationOrgNumber || null,
+          // Delivery preferences
           preferredDeliveryMethod: input.preferredDeliveryMethod || null,
           einvoiceAddress: input.einvoiceAddress || null,
           updatedAt: new Date(),

@@ -48,13 +48,15 @@ export function JournalEntryLineRow({
   };
 
   return (
-    <div className="grid grid-cols-[1fr_120px_120px_40px] gap-2 items-center">
-      <AccountCombobox
-        value={line.accountNumber}
-        onChange={handleAccountChange}
-        disabled={disabled}
-        placeholder="Välj konto..."
-      />
+    <div className="grid grid-cols-[1fr_120px_120px_40px] gap-2 items-center min-w-0">
+      <div className="min-w-0 w-full">
+        <AccountCombobox
+          value={line.accountNumber}
+          onChange={handleAccountChange}
+          disabled={disabled}
+          placeholder="Välj konto..."
+        />
+      </div>
 
       <Input
         type="number"
@@ -64,7 +66,7 @@ export function JournalEntryLineRow({
         value={line.debit || ""}
         onChange={(e) => handleDebitChange(e.target.value)}
         disabled={disabled || !!line.credit}
-        className="text-right"
+        className="text-right w-full"
       />
 
       <Input
@@ -75,7 +77,7 @@ export function JournalEntryLineRow({
         value={line.credit || ""}
         onChange={(e) => handleCreditChange(e.target.value)}
         disabled={disabled || !!line.debit}
-        className="text-right"
+        className="text-right w-full"
       />
 
       <Button
@@ -84,7 +86,7 @@ export function JournalEntryLineRow({
         size="icon"
         onClick={() => onRemove(index)}
         disabled={disabled || !canRemove}
-        className="text-muted-foreground hover:text-destructive"
+        className="text-muted-foreground hover:text-destructive w-full"
       >
         <Trash className="size-4" />
       </Button>

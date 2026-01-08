@@ -78,7 +78,18 @@ export const updateWorkspaceSchema = z.object({
   latePaymentInterest: z.number().min(0).max(100).optional().nullable(),
   defaultPaymentMethod: z.string().max(50).optional().nullable(),
   addOcrNumber: z.boolean().optional().nullable(),
+  // Utlägg settings (UI restricts to 2890 or 2893)
+  defaultUtlaggAccount: z.number().int().optional().nullable(),
   vatReportingFrequency: z.enum(["monthly", "quarterly", "yearly"]).optional().nullable(),
+  // VAT compliance
+  vatNumber: z
+    .string()
+    .max(20)
+    .regex(/^SE\d{12}$/, "VAT-nummer måste vara i format SE + 12 siffror (t.ex. SE559012345601)")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  isVatExempt: z.boolean().optional().nullable(),
   // Email inbox settings
   inboxEmailSlug: z
     .string()

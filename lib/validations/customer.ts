@@ -1,6 +1,33 @@
 import { z } from "zod";
 import { deliveryMethods } from "./invoice";
 
+// Country codes for EU countries (ISO 3166-1 alpha-2)
+export const countryCodes = [
+  "SE", // Sweden
+  "NO", // Norway
+  "DK", // Denmark
+  "FI", // Finland
+  "DE", // Germany
+  "FR", // France
+  "NL", // Netherlands
+  "BE", // Belgium
+  "AT", // Austria
+  "ES", // Spain
+  "IT", // Italy
+  "PT", // Portugal
+  "PL", // Poland
+  "CZ", // Czech Republic
+  "GB", // United Kingdom
+  "IE", // Ireland
+  "CH", // Switzerland
+  "LU", // Luxembourg
+  "EE", // Estonia
+  "LV", // Latvia
+  "LT", // Lithuania
+] as const;
+
+export type CountryCode = (typeof countryCodes)[number];
+
 export const createCustomerSchema = z.object({
   name: z.string().min(1, "Namn krävs").max(100, "Max 100 tecken"),
   orgNumber: z.string().max(20).optional(),
@@ -9,6 +36,21 @@ export const createCustomerSchema = z.object({
   address: z.string().max(200).optional(),
   postalCode: z.string().max(10).optional(),
   city: z.string().max(100).optional(),
+  // VAT/B2B fields
+  vatNumber: z.string().max(20).optional().nullable(),
+  countryCode: z.enum(countryCodes).optional().nullable(),
+  // ROT/RUT fields
+  personalNumber: z
+    .string()
+    .max(13)
+    .regex(/^(\d{8}-?\d{4})?$/, "Personnummer måste vara i format YYYYMMDD-XXXX")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  propertyDesignation: z.string().max(100).optional().nullable(),
+  apartmentNumber: z.string().max(20).optional().nullable(),
+  housingAssociationOrgNumber: z.string().max(20).optional().nullable(),
+  // Delivery preferences
   preferredDeliveryMethod: z.enum(deliveryMethods).optional().nullable(),
   einvoiceAddress: z.string().max(100).optional().nullable(),
 });

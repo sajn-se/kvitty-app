@@ -17,6 +17,8 @@ import {
   X,
   File,
   SidebarIcon,
+  CaretRight,
+  Wallet,
 } from "@phosphor-icons/react";
 import {
   Dialog,
@@ -45,6 +47,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { JournalEntryLineRow } from "./journal-entry-line-row";
 import { TemplateSelector } from "./template-selector";
@@ -78,6 +85,7 @@ const entryTypes: { value: JournalEntryType; label: string; description: string;
   { value: "kvitto", label: "Kvitto/Utgift", description: "Registrera inköp och utlägg", icon: Receipt },
   { value: "inkomst", label: "Inkomst", description: "Bokför försäljning och intäkter", icon: Money },
   { value: "leverantorsfaktura", label: "Leverantörsfaktura", description: "Hantera fakturor från leverantörer", icon: FileText },
+  { value: "utlagg", label: "Utlägg", description: "Personliga utlägg att ersätta", icon: Wallet },
   { value: "annat", label: "Annat", description: "Övriga bokföringshändelser", icon: DotsThree },
 ];
 
@@ -129,6 +137,9 @@ export function AddJournalEntryDialog({
     return stored !== "false";
   });
 
+  // Underlag collapsible state
+  const [isUnderlagOpen, setIsUnderlagOpen] = useState(false);
+
   // Persist AI chat visibility
   const toggleAIChat = () => {
     setShowAIChat((prev) => {
@@ -140,7 +151,7 @@ export function AddJournalEntryDialog({
 
   // Get direction filter based on entry type
   const getDirectionFilter = (): "In" | "Out" | "all" => {
-    if (entryType === "kvitto" || entryType === "leverantorsfaktura") {
+    if (entryType === "kvitto" || entryType === "leverantorsfaktura" || entryType === "utlagg") {
       return "In";
     }
     if (entryType === "inkomst") {
@@ -455,7 +466,7 @@ export function AddJournalEntryDialog({
 
         <div className={cn(
           "flex-1 overflow-hidden",
-          showAIChat ? "grid grid-cols-2 gap-4" : ""
+          showAIChat ? "grid grid-cols-[3fr_2fr] gap-4" : ""
         )}>
           {/* Left side - Step content */}
           <div className="flex flex-col overflow-hidden">
@@ -630,65 +641,85 @@ export function AddJournalEntryDialog({
                   </Field>
 
                   <Field>
-                    <FieldLabel>Underlag</FieldLabel>
-                    <div
-                      {...getRootProps()}
-                      className={cn(
-                        "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
-                        isDragActive
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50 hover:bg-muted/50"
-                      )}
-                    >
-                      <input {...getInputProps()} />
-                      <CloudArrowUp className="size-8 mx-auto mb-2 text-muted-foreground" weight="duotone" />
-                      <p className="text-sm text-muted-foreground">
-                        {isDragActive
-                          ? "Släpp filen här..."
-                          : "Dra och släpp kvitto eller faktura, eller klicka för att välja"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        PDF, PNG, JPG (max 25MB)
-                      </p>
-                    </div>
-
-                    {files.length > 0 && (
-                      <div className="mt-2 space-y-2">
-                        {files.map((file, index) => (
+                    <Collapsible open={isUnderlagOpen} onOpenChange={setIsUnderlagOpen}>
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex items-center justify-between w-full"
+                        >
+                          <FieldLabel>Underlag</FieldLabel>
+                          <CaretRight
+                            className={cn(
+                              "size-4 text-muted-foreground transition-transform",
+                              isUnderlagOpen && "rotate-90"
+                            )}
+                            weight="bold"
+                          />
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="mt-2">
                           <div
-                            key={index}
-                            className="flex items-center gap-2 p-2 bg-muted rounded-lg"
+                            {...getRootProps()}
+                            className={cn(
+                              "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                              isDragActive
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50 hover:bg-muted/50"
+                            )}
                           >
-                            <File className="size-4 text-muted-foreground shrink-0" weight="duotone" />
-                            <span className="text-sm truncate flex-1">{file.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {(file.size / 1024).toFixed(0)} KB
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-6"
-                              onClick={() => removeFile(index)}
-                            >
-                              <X className="size-3" />
-                            </Button>
+                            <input {...getInputProps()} />
+                            <CloudArrowUp className="size-8 mx-auto mb-2 text-muted-foreground" weight="duotone" />
+                            <p className="text-sm text-muted-foreground">
+                              {isDragActive
+                                ? "Släpp filen här..."
+                                : "Dra och släpp kvitto eller faktura, eller klicka för att välja"}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              PDF, PNG, JPG (max 25MB)
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                    )}
+
+                          {files.length > 0 && (
+                            <div className="mt-2 space-y-2">
+                              {files.map((file, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-2 p-2 bg-muted rounded-lg"
+                                >
+                                  <File className="size-4 text-muted-foreground shrink-0" weight="duotone" />
+                                  <span className="text-sm truncate flex-1">{file.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {(file.size / 1024).toFixed(0)} KB
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-6"
+                                    onClick={() => removeFile(index)}
+                                  >
+                                    <X className="size-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </Field>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <FieldLabel>Konteringar</FieldLabel>
-                    <div className="grid grid-cols-[1fr_120px_120px_40px] gap-2 text-xs text-muted-foreground font-medium px-1">
-                      <span>Konto</span>
+                    <div className="grid grid-cols-[1fr_120px_120px_40px] gap-2 text-xs text-muted-foreground font-medium px-1 min-w-0">
+                      <span className="min-w-0">Konto</span>
                       <span className="text-right">Debet</span>
                       <span className="text-right">Kredit</span>
                       <span></span>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       {lines.map((line, index) => (
                         <JournalEntryLineRow
                           key={index}

@@ -19,6 +19,7 @@ import {
   updateLineOrderSchema,
   updateInvoiceMetadataSchema,
   updateInvoiceSettingsSchema,
+  updateInvoiceComplianceSchema,
 } from "@/lib/validations/invoice";
 import { sendInvoiceEmailWithPdf, sendInvoiceEmailWithLink } from "@/lib/email/send-invoice";
 import { sendReminderEmailWithPdf } from "@/lib/email/send-reminder";
@@ -489,6 +490,181 @@ export const invoicesRouter = router({
       return updated;
     }),
 
+  // Update invoice compliance settings (reverse charge, ROT/RUT)
+  updateCompliance: workspaceProcedure
+    .input(updateInvoiceComplianceSchema)
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.db.query.invoices.findFirst({
+        where: and(
+          eq(invoices.id, input.id),
+          eq(invoices.workspaceId, ctx.workspaceId)
+        ),
+        with: {
+          lines: true,
+          customer: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (invoice.status !== "draft") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kan endast ändra compliance-inställningar för utkast",
+        });
+      }
+
+      // Calculate ROT/RUT amounts if type is set
+      let rotRutLaborAmount: string | null = null;
+      let rotRutMaterialAmount: string | null = null;
+      let rotRutDeductionAmount: string | null = null;
+
+      if (input.rotRutType) {
+        // Validate customer has required fields for ROT/RUT
+        if (!invoice.customer.personalNumber) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Kunden saknar personnummer. Lägg till i kunduppgifterna för ROT/RUT.",
+          });
+        }
+
+        // Calculate labor and material amounts from lines
+        let laborAmount = 0;
+        let materialAmount = 0;
+
+        for (const line of invoice.lines) {
+          if (line.lineType === "text") continue;
+          const amount = Number(line.amount);
+
+          if (line.isLabor) {
+            laborAmount += amount;
+          }
+          if (line.isMaterial) {
+            materialAmount += amount;
+          }
+        }
+
+        rotRutLaborAmount = laborAmount > 0 ? laborAmount.toFixed(2) : null;
+        rotRutMaterialAmount = materialAmount > 0 ? materialAmount.toFixed(2) : null;
+
+        // Calculate deduction unless manually overridden
+        if (!input.rotRutDeductionManualOverride) {
+          const rate = input.rotRutType === "rot" ? 0.30 : 0.50;
+          const calculatedDeduction = laborAmount * rate;
+          rotRutDeductionAmount = calculatedDeduction > 0 ? calculatedDeduction.toFixed(2) : null;
+        } else if (input.rotRutDeductionAmount !== undefined) {
+          rotRutDeductionAmount = input.rotRutDeductionAmount !== null
+            ? input.rotRutDeductionAmount.toFixed(2)
+            : null;
+        }
+      }
+
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date(),
+      };
+
+      if (input.isReverseCharge !== undefined) {
+        // Validate customer has VAT number for reverse charge
+        if (input.isReverseCharge && !invoice.customer.vatNumber) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Kunden saknar VAT-nummer. Lägg till i kunduppgifterna för omvänd skattskyldighet.",
+          });
+        }
+        updateData.isReverseCharge = input.isReverseCharge;
+      }
+
+      if (input.rotRutType !== undefined) {
+        updateData.rotRutType = input.rotRutType;
+        updateData.rotRutLaborAmount = rotRutLaborAmount;
+        updateData.rotRutMaterialAmount = rotRutMaterialAmount;
+        updateData.rotRutDeductionAmount = rotRutDeductionAmount;
+      }
+
+      if (input.rotRutDeductionManualOverride !== undefined) {
+        updateData.rotRutDeductionManualOverride = input.rotRutDeductionManualOverride;
+      }
+
+      const [updated] = await ctx.db
+        .update(invoices)
+        .set(updateData)
+        .where(eq(invoices.id, input.id))
+        .returning();
+
+      return updated;
+    }),
+
+  // Recalculate ROT/RUT amounts based on line categorization
+  recalculateRotRut: workspaceProcedure
+    .input(z.object({ invoiceId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.db.query.invoices.findFirst({
+        where: and(
+          eq(invoices.id, input.invoiceId),
+          eq(invoices.workspaceId, ctx.workspaceId)
+        ),
+        with: {
+          lines: true,
+        },
+      });
+
+      if (!invoice) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (invoice.status !== "draft") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kan endast räkna om ROT/RUT för utkast",
+        });
+      }
+
+      if (!invoice.rotRutType) {
+        return invoice;
+      }
+
+      // Calculate labor and material amounts from lines
+      let laborAmount = 0;
+      let materialAmount = 0;
+
+      for (const line of invoice.lines) {
+        if (line.lineType === "text") continue;
+        const amount = Number(line.amount);
+
+        if (line.isLabor) {
+          laborAmount += amount;
+        }
+        if (line.isMaterial) {
+          materialAmount += amount;
+        }
+      }
+
+      // Calculate deduction unless manually overridden
+      let rotRutDeductionAmount: string | null = null;
+      if (!invoice.rotRutDeductionManualOverride) {
+        const rate = invoice.rotRutType === "rot" ? 0.30 : 0.50;
+        const calculatedDeduction = laborAmount * rate;
+        rotRutDeductionAmount = calculatedDeduction > 0 ? calculatedDeduction.toFixed(2) : null;
+      } else {
+        rotRutDeductionAmount = invoice.rotRutDeductionAmount;
+      }
+
+      const [updated] = await ctx.db
+        .update(invoices)
+        .set({
+          rotRutLaborAmount: laborAmount > 0 ? laborAmount.toFixed(2) : null,
+          rotRutMaterialAmount: materialAmount > 0 ? materialAmount.toFixed(2) : null,
+          rotRutDeductionAmount,
+          updatedAt: new Date(),
+        })
+        .where(eq(invoices.id, input.invoiceId))
+        .returning();
+
+      return updated;
+    }),
+
   // Generate OCR number for invoice
   generateOcrNumber: workspaceProcedure
     .input(z.object({ invoiceId: z.string() }))
@@ -632,6 +808,13 @@ export const invoicesRouter = router({
       if (input.unitPrice !== undefined) updateData.unitPrice = input.unitPrice.toFixed(2);
       if (input.vatRate !== undefined) updateData.vatRate = input.vatRate;
       if (input.productType !== undefined) updateData.productType = input.productType;
+      // ROT/RUT fields
+      if (input.isLabor !== undefined) updateData.isLabor = input.isLabor;
+      if (input.isMaterial !== undefined) updateData.isMaterial = input.isMaterial;
+      // Margin scheme purchase price
+      if (input.purchasePrice !== undefined) {
+        updateData.purchasePrice = input.purchasePrice?.toFixed(2) ?? null;
+      }
 
       // Recalculate line amount if quantity or price changed
       const quantity = input.quantity ?? Number(existingLine.quantity);

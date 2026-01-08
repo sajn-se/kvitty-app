@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { openingBalanceLineSchema } from "./opening-balance";
 
 export const fiscalYearTypeSchema = z.enum(["calendar", "broken"]);
 
@@ -12,9 +13,18 @@ export const createPeriodSchema = z.object({
   startDate: z.string().date("Ogiltigt startdatum"),
   endDate: z.string().date("Ogiltigt slutdatum"),
   fiscalYearType: fiscalYearTypeSchema.optional().default("calendar"),
+  openingBalances: z.array(openingBalanceLineSchema).optional(),
 }).refine((data) => new Date(data.startDate) < new Date(data.endDate), {
   message: "Startdatum måste vara före slutdatum",
   path: ["endDate"],
+}).refine((data) => {
+  if (!data.openingBalances || data.openingBalances.length === 0) return true;
+  const totalDebit = data.openingBalances.reduce((sum, l) => sum + (l.debit || 0), 0);
+  const totalCredit = data.openingBalances.reduce((sum, l) => sum + (l.credit || 0), 0);
+  return Math.abs(totalDebit - totalCredit) < 0.01;
+}, {
+  message: "Ingående balanser måste balansera (debet = kredit)",
+  path: ["openingBalances"],
 });
 
 export const updatePeriodSchema = createPeriodSchema;

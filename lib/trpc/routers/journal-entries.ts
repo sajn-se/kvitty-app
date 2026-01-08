@@ -13,7 +13,14 @@ import {
   createJournalEntrySchema,
   updateJournalEntrySchema,
 } from "@/lib/validations/journal-entry";
+import { previewSIEImportSchema, importSIESchema } from "@/lib/validations/sie-import";
 import { deleteFromS3 } from "@/lib/utils/s3";
+import {
+  parseSIEFileFromBuffer,
+  filterVerificationsByDateRange,
+  hashVerification,
+  validateVerificationBalance,
+} from "@/lib/utils/sie-import";
 
 export const journalEntriesRouter = router({
   list: workspaceProcedure
@@ -512,5 +519,217 @@ export const journalEntriesRouter = router({
         .where(eq(journalEntryAttachments.id, input.attachmentId));
 
       return { success: true };
+    }),
+
+  // Preview SIE file import
+  previewSIEImport: workspaceProcedure
+    .input(previewSIEImportSchema)
+    .mutation(async ({ input }) => {
+      try {
+        // Decode base64 to buffer for proper encoding detection
+        const buffer = Buffer.from(input.fileContent, "base64");
+        const result = parseSIEFileFromBuffer(buffer);
+
+        // Calculate balance for each verification
+        const verificationsWithStatus = result.verifications.map((v) => {
+          const balance = validateVerificationBalance(v);
+          return {
+            ...v,
+            balanced: balance.balanced,
+            totalDebit: balance.totalDebit,
+            totalCredit: balance.totalCredit,
+          };
+        });
+
+        return {
+          format: result.format,
+          verifications: verificationsWithStatus,
+          accounts: Array.from(result.accounts.entries()).map(([id, acc]) => ({
+            id,
+            name: acc.name,
+            type: acc.type,
+          })),
+          companyName: result.companyName,
+          orgNumber: result.orgNumber,
+          fiscalYear: result.fiscalYear,
+          softwareProduct: result.softwareProduct,
+          errors: result.errors,
+          warnings: result.warnings,
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Kunde inte läsa SIE-filen: ${error instanceof Error ? error.message : "Okänt fel"}`,
+        });
+      }
+    }),
+
+  // Import verifications from SIE file
+  importSIE: workspaceProcedure
+    .input(importSIESchema)
+    .mutation(async ({ ctx, input }) => {
+      // Verify the fiscal period exists and is not locked
+      const period = await ctx.db.query.fiscalPeriods.findFirst({
+        where: and(
+          eq(fiscalPeriods.id, input.fiscalPeriodId),
+          eq(fiscalPeriods.workspaceId, ctx.workspaceId)
+        ),
+      });
+
+      if (!period) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Räkenskapsperioden hittades inte",
+        });
+      }
+
+      if (period.isLocked) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Räkenskapsåret ${period.label} är låst och kan inte ändras`,
+        });
+      }
+
+      // Filter verifications to only those within the period date range
+      const verificationsInPeriod = filterVerificationsByDateRange(
+        input.verifications,
+        period.startDate,
+        period.endDate
+      );
+
+      if (verificationsInPeriod.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Inga verifikationer finns inom perioden ${period.label} (${period.startDate} - ${period.endDate})`,
+        });
+      }
+
+      // Validate that all verifications are balanced (debit = credit)
+      const unbalancedVerifications = verificationsInPeriod.filter((v) => {
+        const balance = validateVerificationBalance(v);
+        return !balance.balanced;
+      });
+
+      if (unbalancedVerifications.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${unbalancedVerifications.length} verifikation(er) är inte balanserade (debet ≠ kredit). Korrigera dessa innan import.`,
+        });
+      }
+
+      // Check for existing verifications to detect duplicates
+      const existingEntries = await ctx.db.query.journalEntries.findMany({
+        where: and(
+          eq(journalEntries.workspaceId, ctx.workspaceId),
+          eq(journalEntries.fiscalPeriodId, input.fiscalPeriodId)
+        ),
+        with: {
+          lines: true,
+        },
+      });
+
+      // Create hashes of existing entries for duplicate detection
+      const existingHashes = new Set(
+        existingEntries.map((entry) =>
+          hashVerification({
+            sourceId: entry.id,
+            date: entry.entryDate,
+            description: entry.description,
+            lines: entry.lines.map((l) => ({
+              accountNumber: l.accountNumber,
+              accountName: l.accountName,
+              debit: parseFloat(l.debit || "0"),
+              credit: parseFloat(l.credit || "0"),
+            })),
+          })
+        )
+      );
+
+      // Filter out duplicates
+      const newVerifications = verificationsInPeriod.filter(
+        (v) => !existingHashes.has(hashVerification(v))
+      );
+
+      const duplicateCount = verificationsInPeriod.length - newVerifications.length;
+
+      if (newVerifications.length === 0) {
+        return {
+          imported: 0,
+          skipped: duplicateCount,
+          message: "Alla verifikationer fanns redan i systemet",
+        };
+      }
+
+      // Use transaction for atomic import
+      const importedIds = await ctx.db.transaction(async (tx) => {
+        // Get next verification number within transaction
+        const nextNumberResult = await tx
+          .select({ maxNumber: sql<number>`MAX(${journalEntries.verificationNumber})` })
+          .from(journalEntries)
+          .where(
+            and(
+              eq(journalEntries.workspaceId, ctx.workspaceId),
+              eq(journalEntries.fiscalPeriodId, input.fiscalPeriodId)
+            )
+          );
+
+        let nextNumber = (nextNumberResult[0]?.maxNumber || 0) + 1;
+        const ids: string[] = [];
+
+        for (const verification of newVerifications) {
+          // Create the journal entry
+          const [entry] = await tx
+            .insert(journalEntries)
+            .values({
+              workspaceId: ctx.workspaceId,
+              fiscalPeriodId: input.fiscalPeriodId,
+              verificationNumber: nextNumber++,
+              entryDate: verification.date,
+              description: verification.description || "Importerad från SIE",
+              entryType: "annat",
+              sourceType: "sie_import",
+              createdBy: ctx.session.user.id,
+            })
+            .returning();
+
+          // Create the entry lines
+          await tx.insert(journalEntryLines).values(
+            verification.lines.map((line, index) => ({
+              journalEntryId: entry.id,
+              accountNumber: line.accountNumber,
+              accountName: line.accountName,
+              debit: line.debit > 0 ? line.debit.toString() : null,
+              credit: line.credit > 0 ? line.credit.toString() : null,
+              description: line.description || null,
+              sortOrder: index,
+            }))
+          );
+
+          ids.push(entry.id);
+        }
+
+        return ids;
+      });
+
+      // Log the import (outside transaction for better performance)
+      await ctx.db.insert(auditLogs).values({
+        workspaceId: ctx.workspaceId,
+        userId: ctx.session.user.id,
+        action: "import",
+        entityType: "journal_entry",
+        entityId: importedIds[0],
+        changes: {
+          sourceFile: input.sourceFileName,
+          importedCount: importedIds.length,
+          skippedDuplicates: duplicateCount,
+          importedIds,
+        },
+      });
+
+      return {
+        imported: importedIds.length,
+        skipped: duplicateCount,
+        message: `${importedIds.length} verifikationer importerade${duplicateCount > 0 ? `, ${duplicateCount} dubbletter hoppades över` : ""}`,
+      };
     }),
 });

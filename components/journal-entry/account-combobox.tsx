@@ -96,8 +96,12 @@ export function AccountCombobox({
           <CaretUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-        <div className="flex items-center border-b px-3">
+      <PopoverContent 
+        className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[400px]" 
+        align="start"
+        sideOffset={4}
+      >
+        <div className="flex items-center border-b px-3 flex-shrink-0">
           <MagnifyingGlass className="mr-2 size-4 shrink-0 opacity-50" />
           <Input
             placeholder="Sök konto (nummer eller namn)..."
@@ -106,7 +110,7 @@ export function AccountCombobox({
             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
-        <div className="max-h-[300px] overflow-y-auto p-1">
+        <div className="max-h-[300px] overflow-y-auto overflow-x-hidden p-1">
           {filteredAccounts.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               Inga konton hittades
@@ -131,11 +135,11 @@ export function AccountCombobox({
                     value === account.id ? "opacity-100" : "opacity-0"
                   )}
                 />
-                <div className="flex-1 text-left">
-                  <div className="font-medium">
+                <div className="flex-1 text-left min-w-0">
+                  <div className="font-medium truncate">
                     {account.id} - {account.text}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground truncate">
                     {account.category} &gt; {account.subCategory}
                   </div>
                 </div>

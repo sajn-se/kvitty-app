@@ -1,5 +1,15 @@
 import { z } from "zod";
-import { productUnits, productTypes } from "./product";
+import { productUnits, productTypes, marginSchemeTypes } from "./product";
+
+// ROT/RUT deduction types
+export const rotRutTypes = ["rot", "rut"] as const;
+export type RotRutType = (typeof rotRutTypes)[number];
+
+// Labels for ROT/RUT types
+export const rotRutTypeLabels: Record<RotRutType, string> = {
+  rot: "ROT (30% av arbetskostnad)",
+  rut: "RUT (50% av arbetskostnad)",
+};
 
 export const invoiceLineSchema = z.object({
   productId: z.string().optional(),
@@ -60,6 +70,11 @@ export const updateInvoiceLineSchema = z.object({
     .refine((v) => [0, 6, 12, 25].includes(v), "Ogiltig momssats")
     .optional(),
   productType: z.enum(productTypes).optional().nullable(),
+  // ROT/RUT categorization
+  isLabor: z.boolean().optional(),
+  isMaterial: z.boolean().optional(),
+  // Margin scheme purchase price
+  purchasePrice: z.number().min(0).optional().nullable(),
 });
 
 // Schema for updating line order (drag and drop)
@@ -123,6 +138,15 @@ export const updateInvoiceSettingsSchema = z.object({
   deliveryMethod: z.enum(deliveryMethods).optional().nullable(),
 });
 
+// Schema for updating invoice compliance settings (reverse charge, ROT/RUT)
+export const updateInvoiceComplianceSchema = z.object({
+  id: z.string(),
+  isReverseCharge: z.boolean().optional(),
+  rotRutType: z.enum(rotRutTypes).optional().nullable(),
+  rotRutDeductionAmount: z.number().min(0).optional().nullable(),
+  rotRutDeductionManualOverride: z.boolean().optional(),
+});
+
 export type InvoiceLineInput = z.infer<typeof invoiceLineSchema>;
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
@@ -131,3 +155,4 @@ export type UpdateInvoiceLineInput = z.infer<typeof updateInvoiceLineSchema>;
 export type UpdateLineOrderInput = z.infer<typeof updateLineOrderSchema>;
 export type UpdateInvoiceMetadataInput = z.infer<typeof updateInvoiceMetadataSchema>;
 export type UpdateInvoiceSettingsInput = z.infer<typeof updateInvoiceSettingsSchema>;
+export type UpdateInvoiceComplianceInput = z.infer<typeof updateInvoiceComplianceSchema>;

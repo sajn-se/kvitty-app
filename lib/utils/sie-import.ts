@@ -1,16 +1,24 @@
 /**
- * SIE4 File Import Parser
+ * SIE File Import Parser (Unified Interface)
  *
- * Parses Swedish SIE4 format accounting files.
- * SIE4 is the standard format for exchanging accounting data in Sweden.
+ * Parses Swedish SIE4 and SIE5 format accounting files.
+ * - SIE4: Text-based format (older, still widely used)
+ * - SIE5: XML-based format (newer standard)
  *
- * Key SIE4 elements handled:
+ * Key SIE4 elements:
  * - #VER: Verification (journal entry) header
  * - #TRANS: Transaction line within a verification
  * - Character encoding: CP437, Latin-1, or UTF-8
  */
 
 import iconv from "iconv-lite";
+import {
+  parseSIE5,
+  isSIE5Format,
+  amountToDebitCredit,
+  type SIE5ParseResult,
+  type SIE5JournalEntry,
+} from "./sie5-import";
 
 export interface SIE4Transaction {
   accountNumber: number;
@@ -546,10 +554,242 @@ export function isSIEFile(fileName: string, content: string): boolean {
     return true;
   }
 
-  // Check content for SIE markers
+  // Check content for SIE markers (both SIE4 and SIE5)
   if (content.includes("#FLAGGA") || content.includes("#SIETYP") || content.includes("#VER")) {
+    return true;
+  }
+
+  // Check for SIE5 XML format
+  if (isSIE5Format(content)) {
     return true;
   }
 
   return false;
 }
+
+// =============================================================================
+// UNIFIED SIE INTERFACE
+// =============================================================================
+
+export type SIEFormat = "sie4" | "sie5";
+
+export interface UnifiedVerificationLine {
+  accountNumber: number;
+  accountName: string;
+  debit: number;
+  credit: number;
+  description?: string;
+}
+
+export interface UnifiedVerification {
+  sourceId: string;
+  date: string;
+  description: string;
+  lines: UnifiedVerificationLine[];
+}
+
+export interface UnifiedSIEParseResult {
+  format: SIEFormat;
+  verifications: UnifiedVerification[];
+  accounts: Map<string, { name: string; type: string }>;
+  companyName?: string;
+  orgNumber?: string;
+  fiscalYear?: { start: string; end: string };
+  softwareProduct?: string;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Detect SIE format from content
+ */
+export function detectSIEFormat(content: string): SIEFormat {
+  if (isSIE5Format(content)) {
+    return "sie5";
+  }
+  return "sie4";
+}
+
+/**
+ * Convert SIE4 parse result to unified format
+ */
+function convertSIE4ToUnified(result: SIE4ParseResult): UnifiedSIEParseResult {
+  const verifications: UnifiedVerification[] = [];
+  const accounts = new Map<string, { name: string; type: string }>();
+
+  for (const ver of result.verifications) {
+    const lines: UnifiedVerificationLine[] = [];
+
+    for (const trans of ver.transactions) {
+      const accountNum = trans.accountNumber;
+      const accountName = `Konto ${accountNum}`;
+
+      // Ensure account is in map
+      if (!accounts.has(String(accountNum))) {
+        accounts.set(String(accountNum), { name: accountName, type: "unknown" });
+      }
+
+      const debit = trans.amount >= 0 ? trans.amount : 0;
+      const credit = trans.amount < 0 ? Math.abs(trans.amount) : 0;
+
+      lines.push({
+        accountNumber: accountNum,
+        accountName,
+        debit,
+        credit,
+        description: trans.description,
+      });
+    }
+
+    verifications.push({
+      sourceId: `${ver.series}${ver.verificationNumber}`,
+      date: ver.date,
+      description: ver.description,
+      lines,
+    });
+  }
+
+  return {
+    format: "sie4",
+    verifications,
+    accounts,
+    companyName: result.companyName,
+    orgNumber: result.orgNumber,
+    fiscalYear:
+      result.fiscalYearStart && result.fiscalYearEnd
+        ? { start: result.fiscalYearStart, end: result.fiscalYearEnd }
+        : undefined,
+    errors: result.errors,
+    warnings: [],
+  };
+}
+
+/**
+ * Convert SIE5 parse result to unified format
+ */
+function convertSIE5ToUnified(result: SIE5ParseResult): UnifiedSIEParseResult {
+  const verifications: UnifiedVerification[] = [];
+
+  for (const entry of result.journalEntries) {
+    const lines: UnifiedVerificationLine[] = [];
+
+    for (const ledger of entry.ledgerEntries) {
+      const account = result.accounts.get(ledger.accountId);
+      const accountName = account?.name || `Konto ${ledger.accountId}`;
+      const { debit, credit } = amountToDebitCredit(ledger.amount, account?.type);
+
+      lines.push({
+        accountNumber: parseInt(ledger.accountId, 10),
+        accountName,
+        debit,
+        credit,
+        description: ledger.text,
+      });
+    }
+
+    verifications.push({
+      sourceId: `${entry.journalId}-${entry.id}`,
+      date: entry.journalDate,
+      description: entry.text,
+      lines,
+    });
+  }
+
+  // Find primary fiscal year
+  const primaryFY = result.fiscalYears.find((fy) => fy.primary) || result.fiscalYears[0];
+
+  return {
+    format: "sie5",
+    verifications,
+    accounts: new Map(
+      Array.from(result.accounts.entries()).map(([id, acc]) => [
+        id,
+        { name: acc.name, type: acc.type },
+      ])
+    ),
+    companyName: result.companyName,
+    orgNumber: result.orgNumber,
+    fiscalYear: primaryFY ? { start: primaryFY.start, end: primaryFY.end } : undefined,
+    softwareProduct: result.softwareProduct,
+    errors: result.errors,
+    warnings: result.warnings,
+  };
+}
+
+/**
+ * Parse SIE file content (auto-detects format)
+ */
+export function parseSIEFile(content: string): UnifiedSIEParseResult {
+  const format = detectSIEFormat(content);
+
+  if (format === "sie5") {
+    const result = parseSIE5(content);
+    return convertSIE5ToUnified(result);
+  }
+
+  const result = parseSIE4(content);
+  return convertSIE4ToUnified(result);
+}
+
+/**
+ * Parse SIE file from Buffer (handles encoding for SIE4)
+ */
+export function parseSIEFileFromBuffer(buffer: Buffer): UnifiedSIEParseResult {
+  // First, try to detect if it's SIE5 by checking for XML markers
+  const start = buffer.slice(0, 100).toString("utf-8");
+  if (isSIE5Format(start)) {
+    // SIE5 is always UTF-8
+    const content = buffer.toString("utf-8");
+    const result = parseSIE5(content);
+    return convertSIE5ToUnified(result);
+  }
+
+  // SIE4 - use encoding detection
+  const content = decodeSIEContent(buffer);
+  const result = parseSIE4(content);
+  return convertSIE4ToUnified(result);
+}
+
+/**
+ * Validate that a verification balances
+ */
+export function validateVerificationBalance(verification: UnifiedVerification): {
+  balanced: boolean;
+  totalDebit: number;
+  totalCredit: number;
+  difference: number;
+} {
+  const totalDebit = verification.lines.reduce((sum, line) => sum + line.debit, 0);
+  const totalCredit = verification.lines.reduce((sum, line) => sum + line.credit, 0);
+  const difference = Math.abs(totalDebit - totalCredit);
+  const balanced = difference < 0.01;
+
+  return { balanced, totalDebit, totalCredit, difference };
+}
+
+/**
+ * Filter verifications by date range
+ */
+export function filterVerificationsByDateRange(
+  verifications: UnifiedVerification[],
+  startDate: string,
+  endDate: string
+): UnifiedVerification[] {
+  return verifications.filter((v) => v.date >= startDate && v.date <= endDate);
+}
+
+/**
+ * Create a hash for duplicate detection
+ */
+export function hashVerification(verification: UnifiedVerification): string {
+  const sortedLines = [...verification.lines]
+    .sort((a, b) => a.accountNumber - b.accountNumber || a.debit - b.debit || a.credit - b.credit)
+    .map((l) => `${l.accountNumber}:${l.debit}:${l.credit}`)
+    .join("|");
+
+  return `${verification.date}:${verification.description}:${sortedLines}`;
+}
+
+// Re-export SIE5 types for convenience
+export { isSIE5Format } from "./sie5-import";
+export type { SIE5ParseResult, SIE5JournalEntry } from "./sie5-import";

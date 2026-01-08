@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc/client";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   unitLabels,
   productUnits,
@@ -40,6 +41,7 @@ interface EditLineDialogProps {
   line: InvoiceLineWithProduct | null;
   workspaceId: string;
   invoiceId: string;
+  rotRutType?: "rot" | "rut" | null;
 }
 
 function formatCurrency(value: string | number) {
@@ -56,6 +58,7 @@ export function EditLineDialog({
   line,
   workspaceId,
   invoiceId,
+  rotRutType,
 }: EditLineDialogProps) {
   const utils = trpc.useUtils();
   const [description, setDescription] = useState("");
@@ -64,6 +67,8 @@ export function EditLineDialog({
   const [unitPrice, setUnitPrice] = useState("");
   const [vatRate, setVatRate] = useState("25");
   const [productType, setProductType] = useState<ProductType | null>(null);
+  const [isLabor, setIsLabor] = useState(false);
+  const [isMaterial, setIsMaterial] = useState(false);
 
   useEffect(() => {
     if (line) {
@@ -73,6 +78,8 @@ export function EditLineDialog({
       setUnitPrice(line.unitPrice);
       setVatRate(String(line.vatRate));
       setProductType((line.productType as ProductType) || null);
+      setIsLabor(line.isLabor ?? false);
+      setIsMaterial(line.isMaterial ?? false);
     }
   }, [line]);
 
@@ -87,6 +94,7 @@ export function EditLineDialog({
     if (!line) return;
 
     const updates: Record<string, unknown> = {
+      workspaceId,
       lineId: line.id,
       invoiceId,
     };
@@ -109,8 +117,14 @@ export function EditLineDialog({
     if (productType !== (line.productType || null)) {
       updates.productType = productType;
     }
+    if (isLabor !== (line.isLabor ?? false)) {
+      updates.isLabor = isLabor;
+    }
+    if (isMaterial !== (line.isMaterial ?? false)) {
+      updates.isMaterial = isMaterial;
+    }
 
-    if (Object.keys(updates).length > 2) {
+    if (Object.keys(updates).length > 3) {
       updateLine.mutate(updates as Parameters<typeof updateLine.mutate>[0]);
     } else {
       onOpenChange(false);
@@ -225,6 +239,38 @@ export function EditLineDialog({
                   </SelectContent>
                 </Select>
               </FieldGroup>
+
+              {/* ROT/RUT Classification */}
+              {rotRutType && (
+                <FieldGroup>
+                  <FieldLabel>ROT/RUT-klassificering</FieldLabel>
+                  <div className="flex gap-6 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={isLabor}
+                        onCheckedChange={(checked) => {
+                          setIsLabor(!!checked);
+                          if (checked) setIsMaterial(false);
+                        }}
+                      />
+                      <span className="text-sm">Arbetskostnad</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={isMaterial}
+                        onCheckedChange={(checked) => {
+                          setIsMaterial(!!checked);
+                          if (checked) setIsLabor(false);
+                        }}
+                      />
+                      <span className="text-sm">Material/resa</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {rotRutType === "rot" ? "ROT-avdrag (30%)" : "RUT-avdrag (50%)"} beräknas på arbetskostnad
+                  </p>
+                </FieldGroup>
+              )}
 
               <div className="pt-4 border-t space-y-2">
                 <div className="flex justify-between text-sm">

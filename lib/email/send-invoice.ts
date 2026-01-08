@@ -41,6 +41,9 @@ export async function sendInvoiceEmailWithPdf({
       productType: null,
       amount: line.amount,
       sortOrder: 0,
+      purchasePrice: null,
+      isLabor: null,
+      isMaterial: null,
     })),
   });
 

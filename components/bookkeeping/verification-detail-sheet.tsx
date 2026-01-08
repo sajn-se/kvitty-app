@@ -157,9 +157,13 @@ export function VerificationDetailSheet({
       case "inkomst":
         return "Inkomst";
       case "leverantorsfaktura":
-        return "Leverantorsfaktura";
-      case "lonekorning":
-        return "Lonekorning";
+        return "Leverantörsfaktura";
+      case "lon":
+        return "Lön";
+      case "utlagg":
+        return "Utlägg";
+      case "opening_balance":
+        return "Ingående balans";
       default:
         return "Annat";
     }

@@ -218,6 +218,7 @@ export function InvoiceDetailClient({ invoiceId }: InvoiceDetailClientProps) {
             invoiceId={invoiceId}
             lines={invoice.lines}
             isDraft={isDraft}
+            rotRutType={invoice.rotRutType}
             onAddProduct={isDraft ? () => setAddProductOpen(true) : undefined}
             onAddTextLine={isDraft ? handleAddTextLine : undefined}
           />

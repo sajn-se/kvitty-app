@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import Link from "next/link";
-import { Plus, FileText, CaretRight, CalendarBlank, MagnifyingGlass, X } from "@phosphor-icons/react";
+import { Plus, FileText, CaretRight, CalendarBlank, MagnifyingGlass, X, Upload } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AddJournalEntryDialog } from "@/components/journal-entry/add-journal-entry-dialog";
 import { VerificationDetailSheet } from "@/components/bookkeeping/verification-detail-sheet";
+import { SIEImportDialog } from "@/components/bookkeeping/sie-import-dialog";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { formatCurrency } from "@/lib/utils";
 
@@ -74,6 +75,7 @@ export function BookkeepingPageClient({
   const [dateFrom, setDateFrom] = useQueryState("dateFrom", parseAsString.withDefault(""));
   const [dateTo, setDateTo] = useQueryState("dateTo", parseAsString.withDefault(""));
   const [addEntryOpen, setAddEntryOpen] = useState(false);
+  const [sieImportOpen, setSieImportOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
 
   // Get current period - default to most recent if not specified
@@ -191,7 +193,7 @@ export function BookkeepingPageClient({
             {/* Period selector */}
             <Select value={currentPeriodId} onValueChange={handlePeriodChange}>
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Valj period" />
+                <SelectValue placeholder="Välj period" />
               </SelectTrigger>
               <SelectContent>
                 {periods.map((period) => (
@@ -201,6 +203,11 @@ export function BookkeepingPageClient({
                 ))}
               </SelectContent>
             </Select>
+
+            <Button variant="outline" onClick={() => setSieImportOpen(true)}>
+              <Upload className="size-4 mr-2" />
+              Importera SIE
+            </Button>
 
             <Button onClick={() => setAddEntryOpen(true)}>
               <Plus className="size-4 mr-2" />
@@ -290,13 +297,19 @@ export function BookkeepingPageClient({
               />
               <h3 className="font-medium mb-2">Inga verifikationer</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Skapa en verifikation for att borja bokfora i{" "}
+                Skapa en verifikation eller importera fran SIE-fil for att borja bokfora i{" "}
                 {currentPeriod?.label}.
               </p>
-              <Button onClick={() => setAddEntryOpen(true)}>
-                <Plus className="size-4 mr-2" />
-                Ny verifikation
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={() => setAddEntryOpen(true)}>
+                  <Plus className="size-4 mr-2" />
+                  Ny verifikation
+                </Button>
+                <Button variant="outline" onClick={() => setSieImportOpen(true)}>
+                  <Upload className="size-4 mr-2" />
+                  Importera SIE
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -389,6 +402,16 @@ export function BookkeepingPageClient({
         open={!!selectedEntry}
         onOpenChange={(open) => !open && setSelectedEntry(null)}
       />
+
+      {/* SIE import dialog */}
+      <SIEImportDialog
+        workspaceId={workspace.id}
+        workspaceSlug={workspaceSlug}
+        periods={periods}
+        open={sieImportOpen}
+        onOpenChange={setSieImportOpen}
+        defaultPeriodId={currentPeriodId}
+      />
     </>
   );
 }
@@ -400,9 +423,13 @@ function getEntryTypeLabel(type: string): string {
     case "inkomst":
       return "Inkomst";
     case "leverantorsfaktura":
-      return "Leverantorsfaktura";
-    case "lonekorning":
-      return "Lonekorning";
+      return "Leverantörsfaktura";
+    case "lon":
+      return "Lön";
+    case "utlagg":
+      return "Utlägg";
+    case "opening_balance":
+      return "Ingående balans";
     default:
       return "Annat";
   }

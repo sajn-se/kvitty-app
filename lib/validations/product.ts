@@ -27,6 +27,24 @@ export const productUnits = [
 
 export const productTypes = ["V", "T"] as const;
 
+// Margin scheme types for used goods taxation (vinstmarginalbeskattning)
+export const marginSchemeTypes = [
+  "used_goods",       // Begagnade varor
+  "artwork",          // Konstverk
+  "antiques",         // Antikviteter
+  "collectors_items", // Samlarföremål
+] as const;
+
+export type MarginSchemeType = (typeof marginSchemeTypes)[number];
+
+// Labels for margin scheme types
+export const marginSchemeTypeLabels: Record<MarginSchemeType, string> = {
+  used_goods: "Begagnade varor",
+  artwork: "Konstverk",
+  antiques: "Antikviteter",
+  collectors_items: "Samlarföremål",
+};
+
 // Display labels for units (Swedish)
 export const unitLabels: Record<(typeof productUnits)[number], string> = {
   styck: "st",
@@ -95,6 +113,7 @@ export const createProductSchema = z.object({
     .number()
     .refine((v) => [0, 6, 12, 25].includes(v), "Ogiltig momssats"),
   type: z.enum(productTypes).default("T"),
+  marginSchemeType: z.enum(marginSchemeTypes).optional().nullable(),
 });
 
 export const updateProductSchema = createProductSchema.partial().extend({

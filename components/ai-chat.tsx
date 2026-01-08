@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { PaperPlaneRight, Robot, Check } from "@phosphor-icons/react";
+import { PaperPlaneRight, Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
@@ -95,10 +95,10 @@ export function AIChat({ onSuggestion, context, className }: AIChatProps) {
     <div className={cn("flex flex-col h-full relative", className)}>
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-0">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground text-sm py-8">
-            <Robot className="size-12 mx-auto mb-3 opacity-50" weight="duotone" />
-            <p>Hej! Jag kan hjälpa dig att bokföra.</p>
-            <p className="mt-1">Prova t.ex. &quot;Bokför en dator för 22500kr&quot;</p>
+          <div className="flex gap-3">
+            <div className="rounded-lg px-3 py-2 text-sm max-w-[85%]">
+              Hej! Jag kan hjälpa dig att bokföra. Prova t.ex. &quot;Bokför en dator för 22500kr&quot;
+            </div>
           </div>
         ) : (
           messages.map((message, index) => (

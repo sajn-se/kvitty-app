@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, workspaceProcedure } from "../init";
-import { fiscalPeriods, annualClosings } from "@/lib/db/schema";
+import { fiscalPeriods, annualClosings, journalEntries, journalEntryLines } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createPeriodSchema, updatePeriodSchema } from "@/lib/validations/period";
 
@@ -50,19 +50,56 @@ export const periodsRouter = router({
         });
       }
 
-      const [period] = await ctx.db
-        .insert(fiscalPeriods)
-        .values({
-          workspaceId: ctx.workspaceId,
-          label: input.label,
-          urlSlug: input.urlSlug,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          fiscalYearType: input.fiscalYearType,
-        })
-        .returning();
+      // Use transaction to ensure atomicity
+      return await ctx.db.transaction(async (tx) => {
+        const [period] = await tx
+          .insert(fiscalPeriods)
+          .values({
+            workspaceId: ctx.workspaceId,
+            label: input.label,
+            urlSlug: input.urlSlug,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            fiscalYearType: input.fiscalYearType,
+          })
+          .returning();
 
-      return period;
+        // Create opening balance journal entry if provided
+        if (input.openingBalances && input.openingBalances.length > 0) {
+          const validLines = input.openingBalances.filter(
+            (line) => line.accountNumber > 0 && (line.debit || line.credit)
+          );
+
+          if (validLines.length > 0) {
+            const [entry] = await tx
+              .insert(journalEntries)
+              .values({
+                workspaceId: ctx.workspaceId,
+                fiscalPeriodId: period.id,
+                verificationNumber: 0,
+                entryDate: input.startDate,
+                description: "Ingående balans",
+                entryType: "opening_balance",
+                sourceType: "opening_balance",
+                createdBy: ctx.session.user.id,
+              })
+              .returning();
+
+            await tx.insert(journalEntryLines).values(
+              validLines.map((line, index) => ({
+                journalEntryId: entry.id,
+                accountNumber: line.accountNumber,
+                accountName: line.accountName,
+                debit: line.debit?.toString() ?? null,
+                credit: line.credit?.toString() ?? null,
+                sortOrder: index,
+              }))
+            );
+          }
+        }
+
+        return period;
+      });
     }),
 
   update: workspaceProcedure

@@ -23,6 +23,9 @@ interface WorkspaceForPdf {
   // Invoice settings defaults
   paymentTermsDays?: number | null;
   latePaymentInterest?: string | null;
+  // VAT compliance
+  vatNumber?: string | null;
+  isVatExempt?: boolean;
 }
 
 interface InvoicePdfData {
@@ -30,10 +33,12 @@ interface InvoicePdfData {
   invoice: Invoice;
   customer: Customer;
   lines: InvoiceLine[];
+  /** Base64 data URL for QR code (Swish payment) */
+  qrCodeDataUrl?: string;
 }
 
 export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
-  const { workspace, invoice, customer, lines } = data;
+  const { workspace, invoice, customer, lines, qrCodeDataUrl } = data;
   const doc = new jsPDF();
 
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -51,6 +56,10 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
 
   if (workspace.orgNumber) {
     doc.text(`Org.nr: ${workspace.orgNumber}`, margin, y);
+    y += 5;
+  }
+  if (workspace.vatNumber) {
+    doc.text(`VAT-nr: ${workspace.vatNumber}`, margin, y);
     y += 5;
   }
   if (workspace.address) {
@@ -261,6 +270,116 @@ export function generateInvoicePdf(data: InvoicePdfData): jsPDF {
   }
   doc.text(`Märk betalningen med: Faktura ${invoice.invoiceNumber}`, margin, y);
   y += 5;
+
+  // QR code for Swish payment (right side)
+  if (qrCodeDataUrl) {
+    const qrSize = 35;
+    const qrX = pageWidth - margin - qrSize;
+    const qrY = y - 30; // Position alongside payment info
+    try {
+      doc.addImage(qrCodeDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      doc.setFontSize(7);
+      doc.setTextColor(80);
+      doc.text("Betala med Swish", qrX + qrSize / 2, qrY + qrSize + 4, { align: "center" });
+      doc.setTextColor(0);
+    } catch {
+      // Silently ignore QR code errors
+    }
+  }
+
+  // ROT/RUT deduction section
+  if (invoice.rotRutType) {
+    y += 10;
+    doc.setFillColor(240, 248, 255); // Light blue background
+    doc.rect(margin, y - 3, pageWidth - 2 * margin, 28, "F");
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text(
+      invoice.rotRutType === "rot" ? "ROT-avdrag" : "RUT-avdrag",
+      margin + 5,
+      y + 2
+    );
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    const laborAmount = invoice.rotRutLaborAmount ? parseFloat(invoice.rotRutLaborAmount) : 0;
+    const materialAmount = invoice.rotRutMaterialAmount ? parseFloat(invoice.rotRutMaterialAmount) : 0;
+    const deductionAmount = invoice.rotRutDeductionAmount ? parseFloat(invoice.rotRutDeductionAmount) : 0;
+    const rate = invoice.rotRutType === "rot" ? "30%" : "50%";
+
+    doc.text(`Arbetskostnad före skattereduktion: ${formatCurrency(laborAmount)} kr`, margin + 5, y + 9);
+    doc.text(`Material och resekostnader: ${formatCurrency(materialAmount)} kr`, margin + 5, y + 15);
+    doc.text(`Skattereduktion (${rate}): -${formatCurrency(deductionAmount)} kr`, margin + 5, y + 21);
+
+    // Show customer ROT/RUT info on the right
+    const rotRutRightX = pageWidth - margin - 5;
+    if (customer.personalNumber) {
+      doc.text(`Personnr: ${customer.personalNumber}`, rotRutRightX, y + 9, { align: "right" });
+    }
+    if (customer.propertyDesignation && invoice.rotRutType === "rot") {
+      doc.text(`Fastighet: ${customer.propertyDesignation}`, rotRutRightX, y + 15, { align: "right" });
+    }
+
+    y += 32;
+  }
+
+  // Compliance notices section
+  let hasComplianceNotices = false;
+  const complianceStartY = y + 5;
+  let complianceY = complianceStartY;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(80);
+
+  // Small business VAT exemption
+  if (workspace.isVatExempt) {
+    hasComplianceNotices = true;
+    doc.text(
+      "Undantagen från skatteplikt enligt 18 kap. mervärdesskattelagen",
+      margin,
+      complianceY
+    );
+    complianceY += 5;
+  }
+
+  // Reverse charge VAT
+  if (invoice.isReverseCharge) {
+    hasComplianceNotices = true;
+    doc.text(
+      "Omvänd betalningsskyldighet enligt 10 kap. mervärdesskattelagen",
+      margin,
+      complianceY
+    );
+    complianceY += 5;
+    if (customer.vatNumber) {
+      doc.text(`Köparens VAT-nr: ${customer.vatNumber}`, margin, complianceY);
+      complianceY += 5;
+    }
+  }
+
+  // Margin scheme notice (check if any line has margin scheme product)
+  const hasMarginScheme = lines.some(
+    (line) => line.purchasePrice !== null && line.purchasePrice !== undefined
+  );
+  if (hasMarginScheme) {
+    hasComplianceNotices = true;
+    doc.text(
+      "Vinstmarginalbeskattning tillämpas enligt 18 kap. mervärdesskattelagen",
+      margin,
+      complianceY
+    );
+    complianceY += 5;
+  }
+
+  if (hasComplianceNotices) {
+    y = complianceY + 5;
+  }
+
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "normal");
 
   // Custom invoice notes (use invoice-specific notes or workspace default)
   const notesToShow = invoice.customNotes || workspace.invoiceNotes;

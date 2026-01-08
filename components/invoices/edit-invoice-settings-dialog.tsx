@@ -21,19 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/lib/trpc/client";
-import type { Invoice, Customer, Workspace } from "@/lib/db/schema";
-import { paymentMethods, deliveryMethods } from "@/lib/validations/invoice";
+import type { Invoice, Customer, Workspace, InvoiceLine } from "@/lib/db/schema";
+import { paymentMethods, deliveryMethods, rotRutTypes, rotRutTypeLabels } from "@/lib/validations/invoice";
 import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
 
-interface InvoiceWithCustomer extends Invoice {
+interface InvoiceWithCustomerAndLines extends Invoice {
   customer: Customer;
+  lines: InvoiceLine[];
 }
 
 interface EditInvoiceSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  invoice: InvoiceWithCustomer;
+  invoice: InvoiceWithCustomerAndLines;
   workspace: Workspace;
 }
 
@@ -59,6 +62,16 @@ export function EditInvoiceSettingsDialog({
   const [customNotes, setCustomNotes] = useState(invoice.customNotes || "");
   const [deliveryMethod, setDeliveryMethod] = useState(invoice.deliveryMethod || "");
 
+  // Compliance state
+  const [isReverseCharge, setIsReverseCharge] = useState(invoice.isReverseCharge || false);
+  const [rotRutType, setRotRutType] = useState<string | null>(invoice.rotRutType || null);
+  const [rotRutDeductionManualOverride, setRotRutDeductionManualOverride] = useState(
+    invoice.rotRutDeductionManualOverride || false
+  );
+  const [rotRutDeductionAmount, setRotRutDeductionAmount] = useState<number | "">(
+    invoice.rotRutDeductionAmount ? Number(invoice.rotRutDeductionAmount) : ""
+  );
+
   const updateSettings = trpc.invoices.updateSettings.useMutation({
     onSuccess: () => {
       utils.invoices.get.invalidate({ id: invoice.id });
@@ -81,6 +94,17 @@ export function EditInvoiceSettingsDialog({
     },
   });
 
+  const updateCompliance = trpc.invoices.updateCompliance.useMutation({
+    onSuccess: () => {
+      utils.invoices.get.invalidate({ id: invoice.id });
+      toast.success("Compliance-inställningar sparade");
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Kunde inte spara compliance-inställningar");
+    },
+  });
+
   useEffect(() => {
     if (open) {
       setDeliveryTerms(invoice.deliveryTerms || "");
@@ -93,11 +117,19 @@ export function EditInvoiceSettingsDialog({
       setOcrNumber(invoice.ocrNumber || "");
       setCustomNotes(invoice.customNotes || "");
       setDeliveryMethod(invoice.deliveryMethod || "");
+      // Compliance
+      setIsReverseCharge(invoice.isReverseCharge || false);
+      setRotRutType(invoice.rotRutType || null);
+      setRotRutDeductionManualOverride(invoice.rotRutDeductionManualOverride || false);
+      setRotRutDeductionAmount(
+        invoice.rotRutDeductionAmount ? Number(invoice.rotRutDeductionAmount) : ""
+      );
     }
   }, [open, invoice, workspace.paymentTermsDays]);
 
-  const handleSave = () => {
-    updateSettings.mutate({
+  const handleSave = async () => {
+    // First save regular settings
+    await updateSettings.mutateAsync({
       workspaceId: workspace.id,
       id: invoice.id,
       deliveryTerms: deliveryTerms || null,
@@ -109,6 +141,25 @@ export function EditInvoiceSettingsDialog({
       customNotes: customNotes || null,
       deliveryMethod: (deliveryMethod as any) || null,
     });
+
+    // Then save compliance settings if changed
+    const complianceChanged =
+      isReverseCharge !== invoice.isReverseCharge ||
+      rotRutType !== invoice.rotRutType ||
+      rotRutDeductionManualOverride !== invoice.rotRutDeductionManualOverride ||
+      (rotRutDeductionAmount !== "" &&
+        Number(rotRutDeductionAmount) !== Number(invoice.rotRutDeductionAmount || 0));
+
+    if (complianceChanged) {
+      await updateCompliance.mutateAsync({
+        workspaceId: workspace.id,
+        id: invoice.id,
+        isReverseCharge,
+        rotRutType: rotRutType as "rot" | "rut" | null,
+        rotRutDeductionManualOverride,
+        rotRutDeductionAmount: rotRutDeductionAmount !== "" ? Number(rotRutDeductionAmount) : null,
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -122,6 +173,13 @@ export function EditInvoiceSettingsDialog({
     setOcrNumber(invoice.ocrNumber || "");
     setCustomNotes(invoice.customNotes || "");
     setDeliveryMethod(invoice.deliveryMethod || "");
+    // Compliance
+    setIsReverseCharge(invoice.isReverseCharge || false);
+    setRotRutType(invoice.rotRutType || null);
+    setRotRutDeductionManualOverride(invoice.rotRutDeductionManualOverride || false);
+    setRotRutDeductionAmount(
+      invoice.rotRutDeductionAmount ? Number(invoice.rotRutDeductionAmount) : ""
+    );
     onOpenChange(false);
   };
 
@@ -129,7 +187,18 @@ export function EditInvoiceSettingsDialog({
     generateOcr.mutate({ workspaceId: workspace.id, invoiceId: invoice.id });
   };
 
-  const isSubmitting = updateSettings.isPending;
+  const isSubmitting = updateSettings.isPending || updateCompliance.isPending;
+
+  // Calculate ROT/RUT amounts from lines
+  const laborAmount = invoice.lines
+    .filter((line) => line.isLabor && line.lineType !== "text")
+    .reduce((sum, line) => sum + Number(line.amount), 0);
+  const materialAmount = invoice.lines
+    .filter((line) => line.isMaterial && line.lineType !== "text")
+    .reduce((sum, line) => sum + Number(line.amount), 0);
+  const calculatedDeduction = rotRutType
+    ? laborAmount * (rotRutType === "rot" ? 0.3 : 0.5)
+    : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,10 +208,11 @@ export function EditInvoiceSettingsDialog({
         </DialogHeader>
 
         <Tabs defaultValue="terms" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="terms">Villkor</TabsTrigger>
             <TabsTrigger value="payment">Betalning</TabsTrigger>
             <TabsTrigger value="delivery">Leverans</TabsTrigger>
+            <TabsTrigger value="compliance">Moms</TabsTrigger>
             <TabsTrigger value="notes">Anteckningar</TabsTrigger>
           </TabsList>
 
@@ -336,6 +406,158 @@ export function EditInvoiceSettingsDialog({
                     Kundens Peppol-ID eller e-faktura-adress (ändra i kunduppgifter)
                   </FieldDescription>
                 </Field>
+              )}
+            </FieldGroup>
+          </TabsContent>
+
+          <TabsContent value="compliance" className="space-y-4 mt-4">
+            <FieldGroup>
+              {/* Reverse Charge */}
+              <Field>
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="isReverseCharge"
+                    checked={isReverseCharge}
+                    onCheckedChange={(checked) => setIsReverseCharge(!!checked)}
+                    disabled={isSubmitting || invoice.status !== "draft"}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="isReverseCharge"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Omvänd skattskyldighet
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      Köparen ansvarar för momsen (vanligt vid byggtjänster mellan företag)
+                    </p>
+                  </div>
+                </div>
+                {isReverseCharge && !invoice.customer.vatNumber && (
+                  <div className="flex items-center gap-2 mt-2 p-2 rounded-md bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+                    <AlertTriangle className="size-4" />
+                    Kunden saknar VAT-nummer. Lägg till i kunduppgifterna.
+                  </div>
+                )}
+              </Field>
+
+              {/* ROT/RUT Selection */}
+              <Field>
+                <FieldLabel htmlFor="rotRutType">ROT/RUT-avdrag</FieldLabel>
+                <Select
+                  value={rotRutType || "__none__"}
+                  onValueChange={(val) => {
+                    setRotRutType(val === "__none__" ? null : val);
+                    setRotRutDeductionManualOverride(false);
+                    setRotRutDeductionAmount("");
+                  }}
+                  disabled={isSubmitting || invoice.status !== "draft"}
+                >
+                  <SelectTrigger id="rotRutType">
+                    <SelectValue placeholder="Inget avdrag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Inget avdrag</SelectItem>
+                    {rotRutTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {rotRutTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  Skattereduktion för privatpersoner vid ROT (bygg) eller RUT (hushåll) arbeten
+                </FieldDescription>
+              </Field>
+
+              {rotRutType && (
+                <>
+                  {/* ROT/RUT Amounts Summary */}
+                  <div className="rounded-lg bg-muted p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Arbetskostnad (märkt som arbete):</span>
+                      <span>{laborAmount.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} kr</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Material/resor (märkt som material):</span>
+                      <span>{materialAmount.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} kr</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-medium pt-2 border-t">
+                      <span>Beräknad skattereduktion ({rotRutType === "rot" ? "30%" : "50%"}):</span>
+                      <span>{calculatedDeduction.toLocaleString("sv-SE", { minimumFractionDigits: 2 })} kr</span>
+                    </div>
+                    {laborAmount === 0 && (
+                      <p className="text-xs text-muted-foreground pt-2">
+                        Ingen arbetskostnad hittad. Markera fakturarader som "Arbetskostnad" för att beräkna avdrag.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Manual Override */}
+                  <Field>
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        id="rotRutDeductionManualOverride"
+                        checked={rotRutDeductionManualOverride}
+                        onCheckedChange={(checked) => {
+                          setRotRutDeductionManualOverride(!!checked);
+                          if (!checked) {
+                            setRotRutDeductionAmount("");
+                          }
+                        }}
+                        disabled={isSubmitting || invoice.status !== "draft"}
+                      />
+                      <label
+                        htmlFor="rotRutDeductionManualOverride"
+                        className="text-sm font-medium leading-none"
+                      >
+                        Ange manuellt belopp
+                      </label>
+                    </div>
+                  </Field>
+
+                  {rotRutDeductionManualOverride && (
+                    <Field>
+                      <FieldLabel htmlFor="rotRutDeductionAmount">
+                        Skattereduktion (kr)
+                      </FieldLabel>
+                      <Input
+                        id="rotRutDeductionAmount"
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={rotRutDeductionAmount}
+                        onChange={(e) =>
+                          setRotRutDeductionAmount(
+                            e.target.value ? Number(e.target.value) : ""
+                          )
+                        }
+                        placeholder={calculatedDeduction.toFixed(2)}
+                        disabled={isSubmitting || invoice.status !== "draft"}
+                      />
+                    </Field>
+                  )}
+
+                  {/* Customer Validation */}
+                  {!invoice.customer.personalNumber && (
+                    <div className="flex items-center gap-2 p-2 rounded-md bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+                      <AlertTriangle className="size-4" />
+                      Kunden saknar personnummer. Lägg till i kunduppgifterna för ROT/RUT.
+                    </div>
+                  )}
+                  {rotRutType === "rot" && !invoice.customer.propertyDesignation && (
+                    <div className="flex items-center gap-2 p-2 rounded-md bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+                      <AlertTriangle className="size-4" />
+                      Kunden saknar fastighetsbeteckning. Lägg till i kunduppgifterna för ROT.
+                    </div>
+                  )}
+                </>
+              )}
+
+              {invoice.status !== "draft" && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-blue-50 border border-blue-200 text-sm text-blue-800">
+                  Moms- och avdragsinställningar kan endast ändras för utkast.
+                </div>
               )}
             </FieldGroup>
           </TabsContent>

@@ -5,6 +5,7 @@ export const journalEntryTypes = [
   "inkomst",
   "leverantorsfaktura",
   "lon",
+  "utlagg",
   "annat",
 ] as const;
 export type JournalEntryType = (typeof journalEntryTypes)[number];

@@ -58,6 +58,7 @@ const entryTypes: { value: JournalEntryType; label: string }[] = [
   { value: "kvitto", label: "Kvitto/Utgift" },
   { value: "inkomst", label: "Inkomst" },
   { value: "leverantorsfaktura", label: "Leverantörsfaktura" },
+  { value: "utlagg", label: "Utlägg" },
   { value: "annat", label: "Annat" },
 ];
 

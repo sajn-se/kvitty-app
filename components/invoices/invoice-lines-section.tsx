@@ -30,6 +30,7 @@ interface InvoiceLinesSectionProps {
   invoiceId: string;
   lines: InvoiceLineWithProduct[];
   isDraft: boolean;
+  rotRutType?: "rot" | "rut" | null;
   onAddProduct?: () => void;
   onAddTextLine?: () => void;
 }
@@ -39,6 +40,7 @@ export function InvoiceLinesSection({
   invoiceId,
   lines,
   isDraft,
+  rotRutType,
   onAddProduct,
   onAddTextLine,
 }: InvoiceLinesSectionProps) {
@@ -76,7 +78,7 @@ export function InvoiceLinesSection({
       {lines.length > 0 && (
         <>
           {/* Header */}
-          <div className="grid grid-cols-[auto_1fr_80px_80px_80px_80px_100px_80px] gap-2 px-3 py-2 text-sm text-muted-foreground font-medium border-b">
+          <div className={`grid ${rotRutType ? "grid-cols-[auto_1fr_80px_80px_80px_80px_100px_120px_80px]" : "grid-cols-[auto_1fr_80px_80px_80px_80px_100px_80px]"} gap-2 px-3 py-2 text-sm text-muted-foreground font-medium border-b`}>
             <div className="w-6" />
             <div>Beskrivning</div>
             <div className="text-right">Antal</div>
@@ -84,6 +86,7 @@ export function InvoiceLinesSection({
             <div className="text-right">Pris</div>
             <div>Moms</div>
             <div className="text-right">Belopp</div>
+            {rotRutType && <div>ROT/RUT</div>}
             <div />
           </div>
 
@@ -105,6 +108,7 @@ export function InvoiceLinesSection({
                     workspaceId={workspaceId}
                     invoiceId={invoiceId}
                     isDraft={isDraft}
+                    rotRutType={rotRutType}
                   />
                 ))}
               </SortableContext>
@@ -117,6 +121,7 @@ export function InvoiceLinesSection({
                 workspaceId={workspaceId}
                 invoiceId={invoiceId}
                 isDraft={isDraft}
+                rotRutType={rotRutType}
               />
             ))
           )}

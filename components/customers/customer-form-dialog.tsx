@@ -52,6 +52,14 @@ export function CustomerFormDialog({
   const [preferredDeliveryMethod, setPreferredDeliveryMethod] = useState<string>(customer?.preferredDeliveryMethod || "");
   const [einvoiceAddress, setEinvoiceAddress] = useState<string>(customer?.einvoiceAddress || "");
   const [contacts, setContacts] = useState<ContactFormData[]>([]);
+  // VAT/B2B fields
+  const [vatNumber, setVatNumber] = useState<string>(customer?.vatNumber || "");
+  const [countryCode, setCountryCode] = useState<string>(customer?.countryCode || "SE");
+  // ROT/RUT fields
+  const [personalNumber, setPersonalNumber] = useState<string>(customer?.personalNumber || "");
+  const [propertyDesignation, setPropertyDesignation] = useState<string>(customer?.propertyDesignation || "");
+  const [apartmentNumber, setApartmentNumber] = useState<string>(customer?.apartmentNumber || "");
+  const [housingAssociationOrgNumber, setHousingAssociationOrgNumber] = useState<string>(customer?.housingAssociationOrgNumber || "");
 
   // Fetch customer with contacts when editing
   const { data: customerData } = trpc.customers.get.useQuery(
@@ -91,6 +99,12 @@ export function CustomerFormDialog({
     setPreferredDeliveryMethod("");
     setEinvoiceAddress("");
     setContacts([]);
+    setVatNumber("");
+    setCountryCode("SE");
+    setPersonalNumber("");
+    setPropertyDesignation("");
+    setApartmentNumber("");
+    setHousingAssociationOrgNumber("");
   };
 
   useEffect(() => {
@@ -104,6 +118,12 @@ export function CustomerFormDialog({
       setCity(customer.city || "");
       setPreferredDeliveryMethod(customer.preferredDeliveryMethod || "");
       setEinvoiceAddress(customer.einvoiceAddress || "");
+      setVatNumber(customer.vatNumber || "");
+      setCountryCode(customer.countryCode || "SE");
+      setPersonalNumber(customer.personalNumber || "");
+      setPropertyDesignation(customer.propertyDesignation || "");
+      setApartmentNumber(customer.apartmentNumber || "");
+      setHousingAssociationOrgNumber(customer.housingAssociationOrgNumber || "");
     } else {
       resetForm();
     }
@@ -137,6 +157,14 @@ export function CustomerFormDialog({
       city,
       preferredDeliveryMethod: (preferredDeliveryMethod as typeof deliveryMethods[number]) || null,
       einvoiceAddress: einvoiceAddress || null,
+      // VAT/B2B fields
+      vatNumber: vatNumber || null,
+      countryCode: (countryCode as "SE" | "NO" | "DK" | "FI" | "DE" | "FR" | "NL" | "BE" | "AT" | "ES" | "IT" | "PT" | "PL" | "CZ" | "GB" | "IE" | "CH" | "LU" | "EE" | "LV" | "LT") || "SE",
+      // ROT/RUT fields
+      personalNumber: personalNumber || null,
+      propertyDesignation: propertyDesignation || null,
+      apartmentNumber: apartmentNumber || null,
+      housingAssociationOrgNumber: housingAssociationOrgNumber || null,
     };
 
     if (customer) {
@@ -394,6 +422,116 @@ export function CustomerFormDialog({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* VAT/B2B Section */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-medium mb-3">Moms & B2B</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="vatNumber">VAT-nummer</FieldLabel>
+                  <Input
+                    id="vatNumber"
+                    value={vatNumber}
+                    onChange={(e) => setVatNumber(e.target.value)}
+                    placeholder="SE559012345601"
+                    disabled={isPending}
+                  />
+                  <FieldDescription>
+                    Köparens EU VAT-nummer för omvänd skattskyldighet
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="countryCode">Land</FieldLabel>
+                  <Select value={countryCode || "SE"} onValueChange={(val) => setCountryCode(val)}>
+                    <SelectTrigger id="countryCode">
+                      <SelectValue placeholder="Välj land" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SE">Sverige</SelectItem>
+                      <SelectItem value="NO">Norge</SelectItem>
+                      <SelectItem value="DK">Danmark</SelectItem>
+                      <SelectItem value="FI">Finland</SelectItem>
+                      <SelectItem value="DE">Tyskland</SelectItem>
+                      <SelectItem value="FR">Frankrike</SelectItem>
+                      <SelectItem value="NL">Nederländerna</SelectItem>
+                      <SelectItem value="BE">Belgien</SelectItem>
+                      <SelectItem value="AT">Österrike</SelectItem>
+                      <SelectItem value="ES">Spanien</SelectItem>
+                      <SelectItem value="IT">Italien</SelectItem>
+                      <SelectItem value="PT">Portugal</SelectItem>
+                      <SelectItem value="PL">Polen</SelectItem>
+                      <SelectItem value="GB">Storbritannien</SelectItem>
+                      <SelectItem value="IE">Irland</SelectItem>
+                      <SelectItem value="CH">Schweiz</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+            </div>
+
+            {/* ROT/RUT Section */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-medium mb-3">ROT/RUT-uppgifter</h3>
+              <FieldDescription className="mb-3">
+                Obligatoriska uppgifter för skattereduktion vid ROT eller RUT-arbeten
+              </FieldDescription>
+              <div className="space-y-4">
+                <Field>
+                  <FieldLabel htmlFor="personalNumber">Personnummer</FieldLabel>
+                  <Input
+                    id="personalNumber"
+                    value={personalNumber}
+                    onChange={(e) => setPersonalNumber(e.target.value)}
+                    placeholder="YYYYMMDD-XXXX"
+                    disabled={isPending}
+                  />
+                  <FieldDescription>
+                    Köparens personnummer krävs för ROT/RUT-avdrag
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="propertyDesignation">Fastighetsbeteckning (ROT)</FieldLabel>
+                  <Input
+                    id="propertyDesignation"
+                    value={propertyDesignation}
+                    onChange={(e) => setPropertyDesignation(e.target.value)}
+                    placeholder="Stockholm Södermalm 1:23"
+                    disabled={isPending}
+                  />
+                  <FieldDescription>
+                    Obligatoriskt för ROT-avdrag (renovering, ombyggnad, tillbyggnad)
+                  </FieldDescription>
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field>
+                    <FieldLabel htmlFor="apartmentNumber">Lägenhetsnummer (RUT)</FieldLabel>
+                    <Input
+                      id="apartmentNumber"
+                      value={apartmentNumber}
+                      onChange={(e) => setApartmentNumber(e.target.value)}
+                      placeholder="1101"
+                      disabled={isPending}
+                    />
+                    <FieldDescription>
+                      För RUT-avdrag i bostadsrätt
+                    </FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="housingAssociationOrgNumber">BRF org.nr</FieldLabel>
+                    <Input
+                      id="housingAssociationOrgNumber"
+                      value={housingAssociationOrgNumber}
+                      onChange={(e) => setHousingAssociationOrgNumber(e.target.value)}
+                      placeholder="XXXXXX-XXXX"
+                      disabled={isPending}
+                    />
+                    <FieldDescription>
+                      Bostadsrättsföreningens org.nr
+                    </FieldDescription>
+                  </Field>
+                </div>
+              </div>
             </div>
 
             {/* Delivery Settings Section */}

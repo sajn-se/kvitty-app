@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, CalendarDots, CaretDownIcon } from "@phosphor-icons/react";
+import { OpeningBalanceSection } from "./opening-balance-section";
+import type { OpeningBalanceLineInput } from "@/lib/validations/opening-balance";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,7 @@ export function FirstPeriodDialog() {
   const [startMonth, setStartMonth] = useState("05");
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
+  const [openingBalances, setOpeningBalances] = useState<OpeningBalanceLineInput[]>([]);
 
   const hasNoPeriods = periods.length === 0;
 
@@ -89,8 +92,27 @@ export function FirstPeriodDialog() {
     },
   });
 
+  // Filter and validate opening balances before submitting
+  const validOpeningBalances = openingBalances.filter(
+    (line) => line.accountNumber > 0 && (line.debit || line.credit)
+  );
+
+  const openingBalanceTotals = {
+    debit: validOpeningBalances.reduce((sum, l) => sum + (l.debit || 0), 0),
+    credit: validOpeningBalances.reduce((sum, l) => sum + (l.credit || 0), 0),
+  };
+
+  const isOpeningBalanceBalanced =
+    validOpeningBalances.length === 0 ||
+    Math.abs(openingBalanceTotals.debit - openingBalanceTotals.credit) < 0.01;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!isOpeningBalanceBalanced) {
+      return;
+    }
+
     createPeriod.mutate({
       workspaceId: workspace.id,
       label,
@@ -98,6 +120,7 @@ export function FirstPeriodDialog() {
       startDate,
       endDate,
       fiscalYearType,
+      openingBalances: validOpeningBalances.length > 0 ? validOpeningBalances : undefined,
     });
   }
 
@@ -122,7 +145,7 @@ export function FirstPeriodDialog() {
             <DialogTitle className="text-2xl font-bold">Välkommen till {workspace.name}!</DialogTitle>
           </div>
           <DialogDescription>
-            För att komma igång behöver du skapa ditt första räkenskapsår. Detta är en obligatorisk steg för att börja använda systemet.
+            För att komma igång behöver du skapa ditt första räkenskapsår. Detta är ett obligatoriskt steg för att börja använda systemet.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -245,12 +268,28 @@ export function FirstPeriodDialog() {
               </div>
             </div>
 
+            <OpeningBalanceSection
+              lines={openingBalances}
+              onChange={setOpeningBalances}
+              disabled={createPeriod.isPending}
+            />
+
             {createPeriod.error && (
               <p className="text-sm text-red-500">{createPeriod.error.message}</p>
             )}
 
+            {!isOpeningBalanceBalanced && (
+              <p className="text-sm text-amber-600">
+                Ingående balanser måste balansera (debet = kredit)
+              </p>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="submit" disabled={createPeriod.isPending} className="w-full sm:w-auto">
+              <Button
+                type="submit"
+                disabled={createPeriod.isPending || !isOpeningBalanceBalanced}
+                className="w-full sm:w-auto"
+              >
                 {createPeriod.isPending ? <Spinner /> : "Skapa räkenskapsår"}
               </Button>
             </div>

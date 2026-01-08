@@ -5,6 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DotsSixVertical, Trash, Pencil } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/lib/trpc/client";
 import { unitLabels } from "@/lib/validations/product";
 import { EditLineDialog } from "@/components/invoices/edit-line-dialog";
@@ -19,6 +20,7 @@ interface InvoiceLineRowProps {
   workspaceId: string;
   invoiceId: string;
   isDraft: boolean;
+  rotRutType?: "rot" | "rut" | null;
 }
 
 function formatCurrency(value: string | number) {
@@ -29,7 +31,7 @@ function formatCurrency(value: string | number) {
   });
 }
 
-export function InvoiceLineRow({ line, workspaceId, invoiceId, isDraft }: InvoiceLineRowProps) {
+export function InvoiceLineRow({ line, workspaceId, invoiceId, isDraft, rotRutType }: InvoiceLineRowProps) {
   const utils = trpc.useUtils();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -52,14 +54,45 @@ export function InvoiceLineRow({ line, workspaceId, invoiceId, isDraft }: Invoic
     onSuccess: () => utils.invoices.get.invalidate({ workspaceId, id: invoiceId }),
   });
 
+  const updateLine = trpc.invoices.updateLine.useMutation({
+    onSuccess: () => utils.invoices.get.invalidate({ workspaceId, id: invoiceId }),
+  });
+
+  const handleToggleLabor = (checked: boolean) => {
+    updateLine.mutate({
+      workspaceId,
+      lineId: line.id,
+      invoiceId,
+      isLabor: checked,
+      // If setting as labor, unset material
+      isMaterial: checked ? false : (line.isMaterial ?? false),
+    });
+  };
+
+  const handleToggleMaterial = (checked: boolean) => {
+    updateLine.mutate({
+      workspaceId,
+      lineId: line.id,
+      invoiceId,
+      isMaterial: checked,
+      // If setting as material, unset labor
+      isLabor: checked ? false : (line.isLabor ?? false),
+    });
+  };
+
   const isTextLine = line.lineType === "text";
   const lineAmount = parseFloat(line.amount);
+
+  // Determine grid columns based on whether ROT/RUT is active
+  const gridCols = rotRutType
+    ? "grid-cols-[auto_1fr_80px_80px_80px_80px_100px_120px_80px]"
+    : "grid-cols-[auto_1fr_80px_80px_80px_80px_100px_80px]";
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[auto_1fr_80px_80px_80px_80px_100px_80px] gap-2 items-center px-3 py-3 rounded-md hover:bg-muted/50 group transition-colors"
+      className={`grid ${gridCols} gap-2 items-center px-3 py-3 rounded-md hover:bg-muted/50 group transition-colors`}
     >
       {/* Drag Handle */}
       <div
@@ -117,6 +150,36 @@ export function InvoiceLineRow({ line, workspaceId, invoiceId, isDraft }: Invoic
         {isTextLine ? "" : formatCurrency(lineAmount)}
       </span>
 
+      {/* ROT/RUT Checkboxes */}
+      {rotRutType && (
+        <div className="flex items-center gap-3">
+          {isTextLine ? (
+            <span></span>
+          ) : (
+            <>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <Checkbox
+                  checked={line.isLabor ?? false}
+                  onCheckedChange={(checked) => handleToggleLabor(!!checked)}
+                  disabled={!isDraft || updateLine.isPending}
+                  className="size-3.5"
+                />
+                <span className="text-muted-foreground">Arbete</span>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <Checkbox
+                  checked={line.isMaterial ?? false}
+                  onCheckedChange={(checked) => handleToggleMaterial(!!checked)}
+                  disabled={!isDraft || updateLine.isPending}
+                  className="size-3.5"
+                />
+                <span className="text-muted-foreground">Material</span>
+              </label>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Actions */}
       {isDraft && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
@@ -149,6 +212,7 @@ export function InvoiceLineRow({ line, workspaceId, invoiceId, isDraft }: Invoic
           line={line}
           workspaceId={workspaceId}
           invoiceId={invoiceId}
+          rotRutType={rotRutType}
         />
       )}
     </div>

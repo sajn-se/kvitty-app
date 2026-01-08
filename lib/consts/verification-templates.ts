@@ -21,6 +21,7 @@ export const TEMPLATE_CATEGORIES = [
   "Skatter och avgifter",
   "Tillgångar",
   "Utanför EU",
+  "Utlägg",
   "Varor och material",
   "Övriga intäkter",
   "Övriga mallar",
@@ -1273,11 +1274,12 @@ export const VERIFICATION_TEMPLATES: VerificationTemplate[] = [
   },
   {
     "id": "w85mokw8mv69utblupybv85e",
-    "name": "Utlägg utbetalning",
-    "description": "Här bokför du utbetalningar till anställda som betalt kostnader med sina egna pengar. OBS denna mall ska dock inte användas om du använder Bokios utläggsfunktion, då ska du istället registrera utbetalningen via den funktionen.",
+    "name": "Anställdas utlägg - utbetalning",
+    "description": "Bokför utbetalning till anställd för tidigare utlägg. Minskar skulden på konto 2890.",
     "direction": "In",
     "categories": [
-      "Personal"
+      "Personal",
+      "Utlägg"
     ],
     "transactions": [
       {
@@ -1291,6 +1293,78 @@ export const VERIFICATION_TEMPLATES: VerificationTemplate[] = [
         "accountName": "Övriga kortfristiga skulder",
         "debit": 1000,
         "credit": 0
+      }
+    ]
+  },
+  {
+    "id": "utlagg_registrering_2890",
+    "name": "Anställdas utlägg - registrering",
+    "description": "Bokför utgifter som en anställd betalt med egna pengar. Kostnadskontot väljs beroende på typ av utgift.",
+    "direction": "In",
+    "categories": [
+      "Personal",
+      "Utlägg"
+    ],
+    "transactions": [
+      {
+        "account": 5010,
+        "accountName": "Lokalhyra",
+        "debit": 1000,
+        "credit": 0
+      },
+      {
+        "account": 2890,
+        "accountName": "Övriga kortfristiga skulder",
+        "debit": 0,
+        "credit": 1000
+      }
+    ]
+  },
+  {
+    "id": "utlagg_registrering_2893",
+    "name": "Egna utlägg - registrering",
+    "description": "Bokför utgifter som ägaren eller delägaren betalt med egna pengar. Används för egna utlägg med konto 2893.",
+    "direction": "In",
+    "categories": [
+      "Personal",
+      "Utlägg"
+    ],
+    "transactions": [
+      {
+        "account": 5010,
+        "accountName": "Lokalhyra",
+        "debit": 1000,
+        "credit": 0
+      },
+      {
+        "account": 2893,
+        "accountName": "Skulder till närstående personer",
+        "debit": 0,
+        "credit": 1000
+      }
+    ]
+  },
+  {
+    "id": "utlagg_utbetalning_2893",
+    "name": "Egna utlägg - utbetalning",
+    "description": "Bokför utbetalning till ägare eller delägare för tidigare utlägg. Minskar skulden på konto 2893.",
+    "direction": "In",
+    "categories": [
+      "Personal",
+      "Utlägg"
+    ],
+    "transactions": [
+      {
+        "account": 2893,
+        "accountName": "Skulder till närstående personer",
+        "debit": 1000,
+        "credit": 0
+      },
+      {
+        "account": 1930,
+        "accountName": "Företagskonto / affärskonto",
+        "debit": 0,
+        "credit": 1000
       }
     ]
   },

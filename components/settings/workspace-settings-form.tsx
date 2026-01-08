@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   businessTypes,
   type BusinessType,
@@ -63,6 +64,36 @@ const formSchema = updateWorkspaceSchema.extend({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+// Helper button component for generating VAT number
+function GenerateVatNumberButton({
+  workspaceId,
+  onSuccess,
+  disabled,
+}: {
+  workspaceId: string;
+  onSuccess: (vatNumber: string) => void;
+  disabled: boolean;
+}) {
+  const generateMutation = trpc.workspaces.generateVatNumber.useMutation({
+    onSuccess: (workspace) => {
+      if (workspace.vatNumber) {
+        onSuccess(workspace.vatNumber);
+      }
+    },
+  });
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => generateMutation.mutate({ workspaceId })}
+      disabled={disabled || generateMutation.isPending}
+    >
+      {generateMutation.isPending ? <Spinner className="h-4 w-4" /> : "Generera"}
+    </Button>
+  );
+}
 
 export function WorkspaceSettingsForm({
   workspace,
@@ -97,7 +128,10 @@ export function WorkspaceSettingsForm({
         : null,
       defaultPaymentMethod: workspace.defaultPaymentMethod ?? "",
       addOcrNumber: workspace.addOcrNumber ?? false,
+      defaultUtlaggAccount: workspace.defaultUtlaggAccount ?? 2893,
       vatReportingFrequency: workspace.vatReportingFrequency ?? "quarterly",
+      vatNumber: workspace.vatNumber ?? "",
+      isVatExempt: workspace.isVatExempt ?? false,
       inboxEmailSlug: workspace.inboxEmailSlug ?? "",
     },
   });
@@ -141,7 +175,10 @@ export function WorkspaceSettingsForm({
             : null,
           defaultPaymentMethod: updated.defaultPaymentMethod ?? "",
           addOcrNumber: updated.addOcrNumber ?? false,
+          defaultUtlaggAccount: updated.defaultUtlaggAccount ?? 2893,
           vatReportingFrequency: updated.vatReportingFrequency ?? "quarterly",
+          vatNumber: updated.vatNumber ?? "",
+          isVatExempt: updated.isVatExempt ?? false,
           inboxEmailSlug: updated.inboxEmailSlug ?? "",
         });
         router.refresh();
@@ -174,7 +211,10 @@ export function WorkspaceSettingsForm({
       latePaymentInterest: data.latePaymentInterest,
       defaultPaymentMethod: data.defaultPaymentMethod || null,
       addOcrNumber: data.addOcrNumber,
+      defaultUtlaggAccount: data.defaultUtlaggAccount,
       vatReportingFrequency: data.vatReportingFrequency || null,
+      vatNumber: data.vatNumber || null,
+      isVatExempt: data.isVatExempt,
       inboxEmailSlug: data.inboxEmailSlug || null,
     });
   }
@@ -642,6 +682,125 @@ export function WorkspaceSettingsForm({
                     {fieldState.error && (
                       <FieldError errors={[fieldState.error]} />
                     )}
+                  </Field>
+                )}
+              />
+            </FieldGroup>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Utlägg</CardTitle>
+            <CardDescription>
+              Inställningar för personliga utlägg och ersättningar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <Controller
+                name="defaultUtlaggAccount"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="defaultUtlaggAccount">
+                      Standardkonto för utlägg
+                    </FieldLabel>
+                    <Select
+                      value={String(field.value ?? 2893)}
+                      onValueChange={(v) => field.onChange(parseInt(v))}
+                      disabled={isSubmitting}
+                    >
+                      <SelectTrigger id="defaultUtlaggAccount" className="w-full">
+                        <SelectValue placeholder="Välj konto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2893">
+                          2893 - Skulder till närstående personer (egna utlägg)
+                        </SelectItem>
+                        <SelectItem value="2890">
+                          2890 - Övriga kortfristiga skulder (anställdas utlägg)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      Konto 2893 används för ägarens/delägarnas egna utlägg.
+                      Konto 2890 används för anställdas utlägg.
+                    </FieldDescription>
+                    {fieldState.error && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </FieldGroup>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>VAT & Compliance</CardTitle>
+            <CardDescription>
+              Momsregistreringsnummer och specialregler
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
+              <Field data-invalid={!!errors.vatNumber}>
+                <FieldLabel htmlFor="vatNumber">
+                  VAT-nummer (momsregistreringsnummer)
+                </FieldLabel>
+                <div className="flex gap-2">
+                  <Input
+                    id="vatNumber"
+                    placeholder="SE559012345601"
+                    maxLength={20}
+                    disabled={isSubmitting}
+                    {...register("vatNumber")}
+                    className="flex-1"
+                  />
+                  <GenerateVatNumberButton
+                    workspaceId={workspace.id}
+                    onSuccess={(vatNumber) => {
+                      form.setValue("vatNumber", vatNumber, { shouldDirty: true });
+                    }}
+                    disabled={isSubmitting || !workspace.orgNumber}
+                  />
+                </div>
+                <FieldDescription>
+                  Format: SE + organisationsnummer + 01 (t.ex. SE559012345601).
+                  Krävs för att köparen ska ha avdragsrätt för moms.
+                </FieldDescription>
+                {errors.vatNumber && <FieldError errors={[errors.vatNumber]} />}
+              </Field>
+
+              <Controller
+                name="isVatExempt"
+                control={control}
+                render={({ field }) => (
+                  <Field>
+                    <div className="flex items-start space-x-3">
+                      <Checkbox
+                        id="isVatExempt"
+                        checked={field.value ?? false}
+                        onCheckedChange={(checked) => field.onChange(!!checked)}
+                        disabled={isSubmitting}
+                      />
+                      <div className="grid gap-1.5 leading-none">
+                        <label
+                          htmlFor="isVatExempt"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Undantagen från momsplikt
+                        </label>
+                        <p className="text-sm text-muted-foreground">
+                          Aktivera om ditt företag omsätter under 120 000 kr/år
+                          och är undantaget från momsplikt. Fakturor kommer visa
+                          texten "Undantagen från skatteplikt enligt 18 kap.
+                          mervärdesskattelagen".
+                        </p>
+                      </div>
+                    </div>
                   </Field>
                 )}
               />

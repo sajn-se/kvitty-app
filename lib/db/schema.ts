@@ -37,7 +37,9 @@ export const journalEntryTypeEnum = pgEnum("journal_entry_type", [
   "inkomst",
   "leverantorsfaktura",
   "lon",
+  "utlagg",
   "annat",
+  "opening_balance",
 ]);
 
 export const payrollRunStatusEnum = pgEnum("payroll_run_status", [
@@ -131,6 +133,20 @@ export const inboxEmailStatusEnum = pgEnum("inbox_email_status", [
   "rejected",
   "error",
 ]);
+
+// Margin scheme types for used goods taxation (vinstmarginalbeskattning)
+export const marginSchemeTypeEnum = pgEnum("margin_scheme_type", [
+  "used_goods",       // Begagnade varor
+  "artwork",          // Konstverk
+  "antiques",         // Antikviteter
+  "collectors_items", // Samlarföremål
+]);
+
+// ROT/RUT deduction types
+export const rotRutTypeEnum = pgEnum("rot_rut_type", [
+  "rot",  // Renovation, Ombyggnad, Tillbyggnad
+  "rut",  // Hushållsnära tjänster
+]);
 import { relations } from "drizzle-orm";
 
 // ============================================
@@ -219,8 +235,13 @@ export const workspaces = pgTable("workspaces", {
   deliveryTerms: text("delivery_terms"), // Default delivery terms (e.g., "Fritt vårt lager")
   latePaymentInterest: decimal("late_payment_interest", { precision: 5, scale: 2 }), // Default late payment interest %
   defaultPaymentMethod: text("default_payment_method"), // Default: "bankgiro" | "plusgiro" | "iban" | "swish" | "paypal" | "custom"
+  // Utlägg settings
+  defaultUtlaggAccount: integer("default_utlagg_account").default(2893), // 2893 for owner, 2890 for employees
   addOcrNumber: boolean("add_ocr_number").default(false), // Auto-generate OCR numbers
   vatReportingFrequency: vatReportingFrequencyEnum("vat_reporting_frequency").default("quarterly"),
+  // VAT compliance
+  vatNumber: text("vat_number"), // EU VAT number (SE + orgNumber + "01", e.g., "SE559012345601")
+  isVatExempt: boolean("is_vat_exempt").default(false).notNull(), // Småföretagare <120k/year
   // Email inbox settings
   inboxEmailSlug: text("inbox_email_slug"), // e.g., "kvitty" → kvitty.{slug}@inbox.kvitty.se
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -665,6 +686,14 @@ export const customers = pgTable("customers", {
   address: text("address"),
   postalCode: text("postal_code"),
   city: text("city"),
+  // VAT/B2B fields
+  vatNumber: text("vat_number"), // Buyer's EU VAT number for reverse charge
+  countryCode: text("country_code").default("SE"), // ISO 3166-1 alpha-2
+  // ROT/RUT fields
+  personalNumber: text("personal_number"), // Personnummer (YYYYMMDD-XXXX) for ROT/RUT
+  propertyDesignation: text("property_designation"), // Fastighetsbeteckning for ROT
+  apartmentNumber: text("apartment_number"), // Lägenhetsnummer for RUT (bostadsrätt)
+  housingAssociationOrgNumber: text("housing_assoc_org_number"), // BRF org.nr for RUT
   // Delivery preferences
   preferredDeliveryMethod: text("preferred_delivery_method"), // "email_pdf" | "email_link" | "manual" | "e_invoice"
   einvoiceAddress: text("einvoice_address"), // Peppol ID or similar for e-invoicing
@@ -701,6 +730,7 @@ export const products = pgTable("products", {
   unitPrice: decimal("unit_price", { precision: 15, scale: 2 }).notNull(),
   vatRate: integer("vat_rate").notNull().default(25), // 0, 6, 12, 25
   type: productTypeEnum("type").notNull().default("T"), // V=Varor, T=Tjänster
+  marginSchemeType: marginSchemeTypeEnum("margin_scheme_type"), // VMB: used_goods, artwork, etc.
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -746,6 +776,18 @@ export const invoices = pgTable("invoices", {
   ocrNumber: text("ocr_number"), // OCR payment reference number
   customNotes: text("custom_notes"), // Override workspace invoiceNotes
   deliveryMethod: text("delivery_method"), // Override customer preferredDeliveryMethod
+  // Compliance flags
+  isReverseCharge: boolean("is_reverse_charge").default(false).notNull(), // Omvänd skattskyldighet
+  // ROT/RUT deduction fields
+  rotRutType: rotRutTypeEnum("rot_rut_type"), // null | "rot" | "rut"
+  rotRutLaborAmount: decimal("rot_rut_labor_amount", { precision: 15, scale: 2 }), // Arbetskostnad
+  rotRutMaterialAmount: decimal("rot_rut_material_amount", { precision: 15, scale: 2 }), // Material/resa
+  rotRutDeductionAmount: decimal("rot_rut_deduction_amount", { precision: 15, scale: 2 }), // Skattereduktion
+  rotRutDeductionManualOverride: boolean("rot_rut_deduction_manual_override").default(false), // Manuellt justerat
+  // E-invoice (Peppol) status
+  einvoiceSentAt: timestamp("einvoice_sent_at"),
+  einvoiceStatus: text("einvoice_status"), // "pending" | "sent" | "delivered" | "failed"
+  einvoiceError: text("einvoice_error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -765,6 +807,11 @@ export const invoiceLines = pgTable("invoice_lines", {
   productType: productTypeEnum("product_type"), // V=Varor, T=Tjänster (copied from product)
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   sortOrder: integer("sort_order").default(0),
+  // Margin scheme (VMB) - purchase price for profit margin calculation
+  purchasePrice: decimal("purchase_price", { precision: 15, scale: 2 }),
+  // ROT/RUT categorization
+  isLabor: boolean("is_labor").default(false), // Arbetskostnad
+  isMaterial: boolean("is_material").default(false), // Material/resekostnad
 });
 
 export const invoiceOpenLogs = pgTable("invoice_open_logs", {
@@ -1277,10 +1324,12 @@ export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
 export type ProductUnit = (typeof productUnitEnum.enumValues)[number];
 export type ProductType = (typeof productTypeEnum.enumValues)[number];
+export type MarginSchemeType = (typeof marginSchemeTypeEnum.enumValues)[number];
 
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type InvoiceStatus = (typeof invoiceStatusEnum.enumValues)[number];
+export type RotRutType = (typeof rotRutTypeEnum.enumValues)[number];
 
 export type InvoiceLine = typeof invoiceLines.$inferSelect;
 export type NewInvoiceLine = typeof invoiceLines.$inferInsert;

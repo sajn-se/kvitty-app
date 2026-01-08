@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "@phosphor-icons/react";
+import { Plus, Check, CaretUpDown } from "@phosphor-icons/react";
 import {
   Dialog,
   DialogContent,
@@ -12,17 +12,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import { CreateCustomerInlineDialog } from "@/components/invoices/create-customer-inline-dialog";
+import { cn } from "@/lib/utils";
 
 interface CreateInvoiceDialogProps {
   workspaceId: string;
@@ -50,9 +57,26 @@ export function CreateInvoiceDialog({
   });
   const [reference, setReference] = useState("");
   const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const { data: customersData } = trpc.customers.list.useQuery({ workspaceId });
   const customers = customersData?.items;
+
+  const selectedCustomer = useMemo(
+    () => customers?.find((c) => c.id === customerId),
+    [customers, customerId]
+  );
+
+  const formatOrgNumber = (orgNumber: string | null | undefined): string => {
+    if (!orgNumber) return "";
+    if (orgNumber.length === 10) {
+      return `${orgNumber.slice(0, 6)}-${orgNumber.slice(6)}`;
+    }
+    if (orgNumber.length === 12) {
+      return `${orgNumber.slice(0, 10)}-${orgNumber.slice(10)}`;
+    }
+    return orgNumber;
+  };
 
   const createInvoice = trpc.invoices.create.useMutation({
     onSuccess: (invoice) => {
@@ -87,6 +111,7 @@ export function CreateInvoiceDialog({
   const handleCustomerCreated = (newCustomerId: string) => {
     setCustomerId(newCustomerId);
     setCreateCustomerOpen(false);
+    utils.customers.list.invalidate({ workspaceId });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -113,18 +138,60 @@ export function CreateInvoiceDialog({
               <Field>
                 <FieldLabel htmlFor="customer">Kund *</FieldLabel>
                 <div className="flex gap-2">
-                  <Select value={customerId} onValueChange={setCustomerId}>
-                    <SelectTrigger id="customer" className="flex-1">
-                      <SelectValue placeholder="Välj kund" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers?.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="customer"
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={comboboxOpen}
+                        className="flex-1 justify-between"
+                      >
+                        {selectedCustomer ? (
+                          <span className="truncate">{selectedCustomer.name}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Välj kund...</span>
+                        )}
+                        <CaretUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Sök kund..." />
+                        <CommandList>
+                          <CommandEmpty>Inga kunder hittades</CommandEmpty>
+                          <CommandGroup>
+                            {customers?.map((customer) => (
+                              <CommandItem
+                                key={customer.id}
+                                value={`${customer.name} ${customer.orgNumber || ""}`}
+                                onSelect={() => {
+                                  setCustomerId(customer.id === customerId ? "" : customer.id);
+                                  setComboboxOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 size-4",
+                                    customerId === customer.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-medium">{customer.name}</span>
+                                  {customer.orgNumber && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Org.nr: {formatOrgNumber(customer.orgNumber)}
+                                    </span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <Button
                     type="button"
                     variant="outline"

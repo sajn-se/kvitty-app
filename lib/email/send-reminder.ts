@@ -46,6 +46,9 @@ export async function sendReminderEmailWithPdf({
       productType: null,
       amount: line.amount,
       sortOrder: 0,
+      purchasePrice: null,
+      isLabor: null,
+      isMaterial: null,
     })),
   });
 
