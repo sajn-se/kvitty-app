@@ -527,7 +527,7 @@ export function BokslutClient({
             <Button
               variant="outline"
               onClick={() =>
-                router.push(`/${workspaceSlug}/${currentPeriod?.label || ""}/bokforing`)
+                router.push(`/${workspaceSlug}/${currentPeriod?.label || ""}/verifikationer`)
               }
             >
               Visa bokföring

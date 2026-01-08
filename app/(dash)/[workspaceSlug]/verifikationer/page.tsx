@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BookkeepingPageClient } from "@/components/bookkeeping/bookkeeping-page-client";
 
 export const metadata: Metadata = {
-  title: "Bokforing — Kvitty",
+  title: "Verifikationer — Kvitty",
 };
 
 export default async function BookkeepingPage({

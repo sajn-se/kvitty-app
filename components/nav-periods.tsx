@@ -84,9 +84,9 @@ export function NavPeriods({
                 <SidebarMenuButton
                   asChild
                   tooltip="Verifikationer"
-                  isActive={pathname === `/${workspaceSlug}/bokforing`}
+                  isActive={pathname === `/${workspaceSlug}/verifikationer`}
                 >
-                  <Link href={`/${workspaceSlug}/bokforing`}>
+                  <Link href={`/${workspaceSlug}/verifikationer`}>
                     <FileText className="size-4" weight="duotone" />
                     <span>Verifikationer</span>
                   </Link>
