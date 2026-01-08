@@ -5,6 +5,8 @@ import { db } from "./db";
 import * as schema from "./db/schema";
 import { mailer } from "./email/mailer";
 
+const isGoogleSSOEnabled = process.env.GOOGLE_SSO_ENABLED === "true";
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -13,13 +15,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: false, // Magic link only
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      prompt: "select_account",
-    },
-  },
+  socialProviders: isGoogleSSOEnabled
+    ? {
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID as string,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+          prompt: "select_account",
+        },
+      }
+    : {},
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // Update session daily
