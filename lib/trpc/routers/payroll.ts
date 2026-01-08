@@ -578,7 +578,7 @@ export const payrollRouter = router({
       if (!workspace.orgNumber) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Organisationsnummer krävs för AGI-generering",
+          message: "Organisationsnummer krävs för generering av arbetsgivardeklarationer",
         });
       }
 
@@ -621,7 +621,7 @@ export const payrollRouter = router({
       if (!run || !run.agiXml) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "AGI-fil har inte genererats",
+          message: "Arbetsgivardeklarationsfil har inte genererats",
         });
       }
 
@@ -648,7 +648,7 @@ export const payrollRouter = router({
       if (!run.agiXml) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "AGI-fil måste genereras först",
+          message: "Arbetsgivardeklarationsfil måste genereras först",
         });
       }
 

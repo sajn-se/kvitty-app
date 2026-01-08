@@ -58,7 +58,7 @@ export function PayrollPageClient({ workspaceSlug }: PayrollPageClientProps) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Lönekörningar</h1>
             <p className="text-muted-foreground text-sm">
-              Hantera löner och generera AGI-deklarationer
+              Hantera löner och generera arbetsgivardeklarationer
             </p>
           </div>
           <Button onClick={() => setCreateOpen(true)}>

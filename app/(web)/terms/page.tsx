@@ -59,7 +59,7 @@ export default function TermsPage() {
             <p>Kvitty erbjuder två lägen:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong className="text-foreground">Enkelt läge:</strong> Kvittohantering och grundläggande verifikationer</li>
-              <li><strong className="text-foreground">Fullständig bokföring:</strong> Dubbelsidig bokföring, fakturering, lönehantering och AGI-generering</li>
+              <li><strong className="text-foreground">Fullständig bokföring:</strong> Dubbelsidig bokföring, fakturering, lönehantering och generering av arbetsgivardeklarationer</li>
             </ul>
           </div>
         </div>
@@ -131,7 +131,7 @@ export default function TermsPage() {
               <li>Alla verifikationer och journalposter</li>
               <li>Alla skatteberäkningar och momsberäkningar</li>
               <li>Alla löneberäkningar och skatteavdrag</li>
-              <li>Alla AGI XML-filer innan inlämning till Skatteverket</li>
+              <li>Alla XML-filer för arbetsgivardeklarationer innan inlämning till Skatteverket</li>
               <li>Alla SIE-exporter och rapporter</li>
             </ul>
           </div>
@@ -229,7 +229,7 @@ export default function TermsPage() {
               <li>ALLA bokföringsposter och verifikationer</li>
               <li>ALLA skatteberäkningar och momsberäkningar</li>
               <li>ALLA löneberäkningar och skatteavdrag</li>
-              <li>ALLA AGI XML-filer innan inlämning till Skatteverket</li>
+              <li>ALLA XML-filer för arbetsgivardeklarationer innan inlämning till Skatteverket</li>
               <li>ALLA rapporter och SIE-exporter</li>
             </ul>
             <p className="mt-2 font-medium text-foreground">

@@ -87,10 +87,10 @@ export function AGIDeadlineCard({
           <div>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="size-5" />
-              AGI-deadline
+              Deadline för arbetsgivardeklaration
             </CardTitle>
             <CardDescription>
-              Sista datum för att rapportera AGI till Skatteverket
+              Sista datum för att rapportera arbetsgivardeklaration till Skatteverket
             </CardDescription>
           </div>
           {getStatusBadge()}
@@ -147,7 +147,7 @@ export function AGIDeadlineCard({
             ) : (
               <>
                 <CheckCircle className="size-4 mr-2" />
-                Bekräfta att AGI är rapporterad
+                Bekräfta att arbetsgivardeklaration är rapporterad
               </>
             )}
           </Button>
@@ -155,7 +155,7 @@ export function AGIDeadlineCard({
 
         {!hasAGI && (
           <p className="text-sm text-muted-foreground">
-            Generera AGI-fil först innan du kan bekräfta rapportering.
+            Generera arbetsgivardeklarationsfil först innan du kan bekräfta rapportering.
           </p>
         )}
       </CardContent>

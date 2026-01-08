@@ -63,7 +63,7 @@ const modeInfo: Record<
   },
   full_bookkeeping: {
     title: "Bokföring",
-    description: "Komplett bokföringssystem med löner, moms och AGI-deklaration",
+    description: "Komplett bokföringssystem med löner, moms och arbetsgivardeklaration",
     icon: Calculator,
     price: "49 kr/mån",
     benefits: [

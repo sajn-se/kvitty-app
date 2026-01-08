@@ -31,7 +31,7 @@ export function AgiPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>AGI-fil genererad</DialogTitle>
+          <DialogTitle>Arbetsgivardeklarationsfil genererad</DialogTitle>
         </DialogHeader>
 
         <div className="overflow-auto max-h-[60vh] bg-muted p-4 rounded-lg">

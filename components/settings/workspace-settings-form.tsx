@@ -271,7 +271,7 @@ export function WorkspaceSettingsForm({
           <CardHeader>
             <CardTitle>Företagsinformation</CardTitle>
             <CardDescription>
-              Information om företaget som används för fakturering och AGI XML
+              Information om företaget som används för fakturering och XML för arbetsgivardeklarationer
             </CardDescription>
           </CardHeader>
           <CardContent>

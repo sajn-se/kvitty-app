@@ -245,7 +245,7 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
                 disabled={generateAGI.isPending}
               >
                 {generateAGI.isPending ? <Spinner /> : <FileCode className="size-4 mr-2" />}
-                Generera AGI
+                Generera arbetsgivardeklaration
               </Button>
             )}
             {run.agiXml && (
@@ -261,7 +261,7 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
                 }}
               >
                 <Download className="size-4 mr-2" />
-                Ladda ner AGI
+                Ladda ner arbetsgivardeklaration
               </Button>
             )}
             {canMarkAsPaid && (

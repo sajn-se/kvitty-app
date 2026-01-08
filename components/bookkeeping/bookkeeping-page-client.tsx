@@ -163,7 +163,7 @@ export function BookkeepingPageClient({
               />
               <h3 className="font-medium mb-2">Ingen rakenskapsperiod</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Du maste skapa en rakenskapsperiod innan du kan borja bokfora.
+                Du maste skapa en rakenskapsperiod innan du kan borja bokföra.
               </p>
               <Button asChild>
                 <Link href={`/${workspaceSlug}/perioder`}>
@@ -186,7 +186,7 @@ export function BookkeepingPageClient({
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Verifikationer</h1>
             <p className="text-muted-foreground text-sm">
-              Bokfor transaktioner med dubbel bokforing
+              Bokför transaktioner med dubbel bokföring
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -297,7 +297,7 @@ export function BookkeepingPageClient({
               />
               <h3 className="font-medium mb-2">Inga verifikationer</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Skapa en verifikation eller importera fran SIE-fil for att borja bokfora i{" "}
+                Skapa en verifikation eller importera fran SIE-fil för att börja bokföra i{" "}
                 {currentPeriod?.label}.
               </p>
               <div className="flex gap-2 justify-center">

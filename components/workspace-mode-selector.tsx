@@ -25,7 +25,7 @@ const modes: {
   {
     value: "full_bookkeeping",
     title: "Bokföring",
-    description: "Komplett bokföringssystem med löner, moms och AGI-deklaration",
+    description: "Komplett bokföringssystem med löner, moms och arbetsgivardeklaration",
     icon: Calculator,
   },
 ];

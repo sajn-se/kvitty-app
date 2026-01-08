@@ -297,7 +297,7 @@ export function TransactionsPageClient({
               <p className="text-muted-foreground text-sm mb-4">
                 {hasFilters
                   ? "Prova att justera dina filter."
-                  : "Importera eller skapa banktransaktioner for att komma igang."}
+                  : "Importera eller skapa banktransaktioner för att komma igang."}
               </p>
               {!hasFilters && (
                 <AddBankTransactionButton workspaceId={workspace.id} />

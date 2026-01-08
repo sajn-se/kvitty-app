@@ -25,8 +25,8 @@ export default function PrivacyPage() {
         </p>
         <p>
           Kvitty är en bokförings- och faktureringslösning för små företag i Sverige. Vi erbjuder
-          både enkel kvittohantering och fullständig bokföring med lönehantering och AGI-generering
-          (Arbetsgivardeklaration) för svensk skattedeklaration.
+          både enkel kvittohantering och fullständig bokföring med lönehantering och generering av arbetsgivardeklarationer
+          för svensk skattedeklaration.
         </p>
       </LegalSection>
 
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
               <li>Adressuppgifter</li>
               <li>Löneuppgifter och skatteinställningar</li>
               <li>Lönekörningar och beräkningar</li>
-              <li>AGI XML-filer (arbetsgivardeklarationer)</li>
+              <li>XML-filer för arbetsgivardeklarationer</li>
             </ul>
           </div>
 

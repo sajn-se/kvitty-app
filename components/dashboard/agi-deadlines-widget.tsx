@@ -1,10 +1,11 @@
 "use client";
 
-import { Calendar, WarningCircle, CheckCircle } from "@phosphor-icons/react";
+import { Calendar, WarningCircle, CheckCircle, Info } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc/client";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -29,8 +30,21 @@ export function AGIDeadlinesWidget({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>AGI-deadlines</CardTitle>
-          <CardDescription>Kommande deadlines för AGI-rapportering</CardDescription>
+          <div className="flex items-center gap-2">
+            <CardTitle>Rapporteringsdeadlines</CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  Arbetsgivardeklaration är den deklaration som arbetsgivaren skickar till Skatteverket baserat på löner och sociala avgifter. 
+                  Här visas deadlines för när arbetsgivardeklarationsrapportering måste skickas in.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <CardDescription>Deadlines för arbetsgivardeklarationsrapportering till Skatteverket</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex justify-center py-8">
@@ -45,8 +59,21 @@ export function AGIDeadlinesWidget({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>AGI-deadlines</CardTitle>
-          <CardDescription>Kommande deadlines för AGI-rapportering</CardDescription>
+          <div className="flex items-center gap-2">
+            <CardTitle>Rapporteringsdeadlines</CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  Arbetsgivardeklaration är den deklaration som arbetsgivaren skickar till Skatteverket baserat på löner och sociala avgifter. 
+                  Här visas deadlines för när arbetsgivardeklarationsrapportering måste skickas in.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <CardDescription>Deadlines för arbetsgivardeklarationsrapportering till Skatteverket</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-4">
@@ -65,9 +92,19 @@ export function AGIDeadlinesWidget({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>AGI-deadlines</CardTitle>
-            <CardDescription>Kommande deadlines för AGI-rapportering</CardDescription>
+          <div className="flex items-center gap-2">
+            <CardTitle>Rapporteringsdeadlines</CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  Arbetsgivardeklaration är den deklaration som arbetsgivaren skickar till Skatteverket baserat på löner och sociala avgifter. 
+                  Här visas deadlines för när arbetsgivardeklarationsrapportering måste skickas in.
+                </p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           {overdue.length > 0 && (
             <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
@@ -76,6 +113,7 @@ export function AGIDeadlinesWidget({
             </Badge>
           )}
         </div>
+        <CardDescription>Deadlines för arbetsgivardeklarationsrapportering till Skatteverket</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {overdue.length > 0 && (
