@@ -1,13 +1,14 @@
 "use server";
 
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { workspaceMembers, workspaces } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import { createCuid } from "@/lib/utils/cuid";
-import { s3Client, CACHE_CONTROL } from "@/lib/utils/s3";
+import {
+  getStorageProvider,
+  getStorageMode,
+  supportsPresignedUrl,
+} from "@/lib/storage";
 import path from "path";
 
 export const ALLOWED_MIME_TYPES = new Set([
@@ -35,31 +36,37 @@ export const ALLOWED_EXTENSIONS = new Set([
 
 export const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
-function sanitizeFilename(filename: string): string {
-  const basename = path.basename(filename);
-  return basename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-}
-
 function getFileExtension(filename: string): string {
   return path.extname(filename).toLowerCase();
 }
 
-interface GetPresignedUrlInput {
+interface GetUploadUrlInput {
   filename: string;
   contentType: string;
   workspaceSlug: string;
   fileSize?: number;
 }
 
-interface GetPresignedUrlResult {
-  presignedUrl: string;
-  cloudFrontUrl: string;
+interface GetUploadUrlResult {
+  /** Presigned URL for direct upload (null if not supported) */
+  presignedUrl: string | null;
+  /** The public URL where the file will be accessible */
+  url: string;
+  /** Storage key/path */
   key: string;
+  /** Whether to use direct upload via presigned URL */
+  usePresignedUrl: boolean;
+  /** The storage mode being used */
+  storageMode: string;
 }
 
-export async function getPresignedUrl(
-  input: GetPresignedUrlInput
-): Promise<GetPresignedUrlResult> {
+/**
+ * Get upload URL information for a file
+ * Returns presigned URL for S3, or indicates server upload needed for local/vercel-blob
+ */
+export async function getUploadUrl(
+  input: GetUploadUrlInput
+): Promise<GetUploadUrlResult> {
   const session = await getSession();
 
   if (!session) {
@@ -117,29 +124,17 @@ export async function getPresignedUrl(
     throw new Error("Not a member of this workspace");
   }
 
-  // Generate unique key: /workspaceSlug/randomcuid/file.pdf
-  const safeFilename = sanitizeFilename(filename);
-  const uniqueId = createCuid();
-  const s3Key = `${workspaceSlug}/${uniqueId}/${safeFilename}`;
-
-  // Generate presigned URL
-  const command = new PutObjectCommand({
-    Bucket: process.env.AWS_S3_BUCKET!,
-    Key: s3Key,
-    ContentType: contentType,
-    CacheControl: CACHE_CONTROL,
-  });
-
-  const presignedUrl = await getSignedUrl(s3Client, command, {
-    expiresIn: 300, // 5 minutes
-  });
-
-  // Construct CloudFront URL for storage in DB
-  const cloudFrontUrl = `https://${process.env.CLOUDFRONT_DOMAIN}/${s3Key}`;
+  const provider = getStorageProvider();
+  const result = await provider.getPresignedUrl(filename, contentType, workspaceSlug);
 
   return {
-    presignedUrl,
-    cloudFrontUrl,
-    key: s3Key,
+    presignedUrl: result.presignedUrl,
+    url: result.url,
+    key: result.key,
+    usePresignedUrl: supportsPresignedUrl(),
+    storageMode: getStorageMode(),
   };
 }
+
+// Legacy export for backwards compatibility
+export const getPresignedUrl = getUploadUrl;

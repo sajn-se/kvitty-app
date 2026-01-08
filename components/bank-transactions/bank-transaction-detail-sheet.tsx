@@ -125,13 +125,13 @@ export function BankTransactionDetailSheet({
 
     try {
       const uploads = validFiles.map(async (file) => {
-        const { cloudFrontUrl } = await s3Upload(file, { workspaceSlug });
+        const { url } = await s3Upload(file, { workspaceSlug });
 
         await utils.client.attachments.create.mutate({
           workspaceId,
           bankTransactionId: transaction.id,
           fileName: file.name,
-          fileUrl: cloudFrontUrl,
+          fileUrl: url,
           fileSize: file.size,
           mimeType: file.type,
         });

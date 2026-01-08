@@ -1,33 +1,16 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import { createCuid } from "./cuid";
+/**
+ * Legacy S3 utilities - re-exports from the new storage abstraction
+ * Kept for backwards compatibility with existing code
+ */
 
-export const CACHE_CONTROL = "public, max-age=31536000, immutable";
+import { uploadFile, deleteFile } from "@/lib/storage";
+import { getS3Client, CACHE_CONTROL } from "@/lib/storage/providers/s3";
 
-function createS3Client(): S3Client {
-  return new S3Client({
-    region: process.env.AWS_REGION!,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
-}
-
-let _s3Client: S3Client | null = null;
-
-export function getS3Client(): S3Client {
-  if (!_s3Client) {
-    _s3Client = createS3Client();
-  }
-  return _s3Client;
-}
+// Re-export S3-specific utilities for code that needs direct S3 access
+export { getS3Client, CACHE_CONTROL };
 
 // Legacy export for backwards compatibility
-export const s3Client = new Proxy({} as S3Client, {
+export const s3Client = new Proxy({} as ReturnType<typeof getS3Client>, {
   get(_target, prop) {
     return Reflect.get(getS3Client(), prop);
   },
@@ -38,50 +21,27 @@ interface UploadResult {
   cloudFrontUrl: string;
 }
 
-function sanitizeFilename(filename: string): string {
-  const basename = filename.split("/").pop() || filename;
-  return basename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-}
-
+/**
+ * Upload a file to storage
+ * @deprecated Use uploadFile from @/lib/storage instead
+ */
 export async function uploadToS3(
   buffer: Buffer,
   filename: string,
   contentType: string,
   workspaceSlug: string
 ): Promise<UploadResult> {
-  const safeFilename = sanitizeFilename(filename);
-  const uniqueId = createCuid();
-  const key = `${workspaceSlug}/${uniqueId}/${safeFilename}`;
-
-  const command = new PutObjectCommand({
-    Bucket: process.env.AWS_S3_BUCKET!,
-    Key: key,
-    Body: buffer,
-    ContentType: contentType,
-    CacheControl: CACHE_CONTROL,
-  });
-
-  await getS3Client().send(command);
-
+  const result = await uploadFile(buffer, filename, contentType, workspaceSlug);
   return {
-    key,
-    cloudFrontUrl: `https://${process.env.CLOUDFRONT_DOMAIN}/${key}`,
+    key: result.key,
+    cloudFrontUrl: result.url, // Renamed for backwards compatibility
   };
 }
 
+/**
+ * Delete a file from storage
+ * @deprecated Use deleteFile from @/lib/storage instead
+ */
 export async function deleteFromS3(fileUrl: string): Promise<void> {
-  try {
-    const url = new URL(fileUrl);
-    const key = url.pathname.slice(1);
-
-    const command = new DeleteObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET!,
-      Key: key,
-    });
-
-    await getS3Client().send(command);
-  } catch (error) {
-    console.error("Failed to delete from S3:", error);
-    throw error;
-  }
+  await deleteFile(fileUrl);
 }

@@ -246,12 +246,12 @@ export function AddJournalEntryDialog({
 
     for (const file of files) {
       try {
-        const { cloudFrontUrl } = await s3Upload(file, { workspaceSlug });
+        const { url } = await s3Upload(file, { workspaceSlug });
         await addAttachment.mutateAsync({
           workspaceId,
           journalEntryId,
           fileName: file.name,
-          fileUrl: cloudFrontUrl,
+          fileUrl: url,
           fileSize: file.size,
           mimeType: file.type,
         });
