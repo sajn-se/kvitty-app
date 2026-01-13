@@ -57,13 +57,13 @@ export function TablePagination({
 
   return (
     <div className="flex items-center justify-between py-4">
-      <div className="flex items-center gap-4">
-        <p className="text-sm text-muted-foreground">
-          Visar {startItem}–{endItem} av {total} {itemLabel}
-        </p>
+      <p className="text-sm text-muted-foreground">
+        Visar {startItem}–{endItem} av {total} {itemLabel}
+      </p>
+      <div className="flex items-center gap-6">
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Visa</span>
+            <span className="text-sm text-muted-foreground">Rader per sida</span>
             <Select
               value={String(pageSize)}
               onValueChange={(value) => onPageSizeChange(Number(value))}
@@ -81,54 +81,54 @@ export function TablePagination({
             </Select>
           </div>
         )}
-      </div>
-      {totalPages > 1 && (
-        <Pagination className="mx-0 w-auto">
-          <PaginationContent>
-            <PaginationItem>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1}
-                className="gap-1 pl-1.5"
-              >
-                <CaretLeft className="size-4" />
-                <span className="hidden sm:block">Föregående</span>
-              </Button>
-            </PaginationItem>
-            {pageNumbers.map((p, i) => (
-              <PaginationItem key={p === "ellipsis" ? `ellipsis-${i}` : p}>
-                {p === "ellipsis" ? (
-                  <span className="flex size-8 items-center justify-center">
-                    <DotsThree className="size-4" />
-                  </span>
-                ) : (
-                  <Button
-                    variant={p === page ? "outline" : "ghost"}
-                    size="icon"
-                    onClick={() => onPageChange(p)}
-                  >
-                    {p}
-                  </Button>
-                )}
+        {totalPages > 1 && (
+          <Pagination className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPageChange(page - 1)}
+                  disabled={page <= 1}
+                  className="gap-1 pl-1.5"
+                >
+                  <CaretLeft className="size-4" />
+                  <span className="hidden sm:block">Föregående</span>
+                </Button>
               </PaginationItem>
-            ))}
-            <PaginationItem>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages}
-                className="gap-1 pr-1.5"
-              >
-                <span className="hidden sm:block">Nästa</span>
-                <CaretRight className="size-4" />
-              </Button>
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+              {pageNumbers.map((p, i) => (
+                <PaginationItem key={p === "ellipsis" ? `ellipsis-${i}` : p}>
+                  {p === "ellipsis" ? (
+                    <span className="flex size-8 items-center justify-center">
+                      <DotsThree className="size-4" />
+                    </span>
+                  ) : (
+                    <Button
+                      variant={p === page ? "outline" : "ghost"}
+                      size="icon"
+                      onClick={() => onPageChange(p)}
+                    >
+                      {p}
+                    </Button>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page >= totalPages}
+                  className="gap-1 pr-1.5"
+                >
+                  <span className="hidden sm:block">Nästa</span>
+                  <CaretRight className="size-4" />
+                </Button>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+      </div>
     </div>
   );
 }
