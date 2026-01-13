@@ -36,7 +36,9 @@ interface EmployeesTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 export function EmployeesTable({
@@ -45,7 +47,9 @@ export function EmployeesTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: EmployeesTableProps) {
   return (
     <>
@@ -151,8 +155,9 @@ export function EmployeesTable({
       page={page}
       totalPages={totalPages}
       total={total}
-      pageSize={20}
+      pageSize={pageSize}
       onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
       itemLabel="anställda"
     />
     </>

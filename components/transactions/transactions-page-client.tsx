@@ -26,7 +26,7 @@ interface TransactionsPageClientProps {
   workspaceSlug: string;
 }
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 const quickFilterOptions = ["all", "last-month", "last-3-months", "last-year"] as const;
 type QuickFilter = (typeof quickFilterOptions)[number];
@@ -73,6 +73,7 @@ export function TransactionsPageClient({
   );
   const [selectedId, setSelectedId] = useQueryState("selected", parseAsString.withDefault(""));
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
 
   // Local state for search input (for debouncing)
   const [searchInput, setSearchInput] = useState(search);
@@ -135,17 +136,23 @@ export function TransactionsPageClient({
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     search: search || undefined,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const transactions = data?.items ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
   // Handle page change
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
   };
 
   const hasFilters = search || dateFrom || dateTo || bankAccountId;
@@ -315,7 +322,9 @@ export function TransactionsPageClient({
             page={page}
             totalPages={totalPages}
             total={total}
+            pageSize={pageSize}
             onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
           />
         )}
       </div>

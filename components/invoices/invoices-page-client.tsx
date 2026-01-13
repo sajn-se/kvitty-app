@@ -64,7 +64,7 @@ interface ReminderInvoice {
   dueDate: string;
 }
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export function InvoicesPageClient() {
   const { workspace } = useWorkspace();
@@ -77,6 +77,7 @@ export function InvoicesPageClient() {
   const [customerFilter, setCustomerFilter] = useQueryState("customerId", parseAsString.withDefault(""));
   const [newInvoice, setNewInvoice] = useQueryState("newInvoice", parseAsBoolean.withDefault(false));
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
 
   // Local state
   const [createOpen, setCreateOpen] = useState(newInvoice);
@@ -89,13 +90,13 @@ export function InvoicesPageClient() {
     workspaceId: workspace.id,
     status: statusFilter === "all" ? undefined : statusFilter,
     customerId: customerFilter || undefined,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const invoices = data?.items;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
   // Reset page when filters change
   const handleStatusFilterChange = (status: StatusFilter) => {
@@ -105,6 +106,11 @@ export function InvoicesPageClient() {
 
   const handleCustomerFilterChange = (customerId: string | null) => {
     setCustomerFilter(customerId);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
     setPage(1);
   };
 
@@ -346,7 +352,9 @@ export function InvoicesPageClient() {
           page={page}
           totalPages={totalPages}
           total={total}
+          pageSize={pageSize}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       )}
 

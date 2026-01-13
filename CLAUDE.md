@@ -315,20 +315,27 @@ list: workspaceProcedure
 ```typescript
 import { useQueryState, parseAsInteger } from "nuqs";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 // URL state with nuqs
 const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
+
+// Handler for page size changes (resets to page 1)
+const handlePageSizeChange = (newSize: number) => {
+  setPageSize(newSize);
+  setPage(1);
+};
 
 const { data } = trpc.items.list.useQuery({
   workspaceId: workspace.id,
-  limit: PAGE_SIZE,
-  offset: (page - 1) * PAGE_SIZE,
+  limit: pageSize,
+  offset: (page - 1) * pageSize,
 });
 
 const items = data?.items;
 const total = data?.total ?? 0;
-const totalPages = Math.ceil(total / PAGE_SIZE);
+const totalPages = Math.ceil(total / pageSize);
 ```
 
 **Table Component:**
@@ -338,7 +345,9 @@ interface TableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 // Use the shared TablePagination component
@@ -348,8 +357,9 @@ import { TablePagination } from "@/components/ui/table-pagination";
   page={page}
   totalPages={totalPages}
   total={total}
-  pageSize={20}
+  pageSize={pageSize}
   onPageChange={onPageChange}
+  onPageSizeChange={onPageSizeChange}
   itemLabel="items"
 />
 ```

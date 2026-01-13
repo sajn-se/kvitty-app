@@ -29,7 +29,9 @@ interface ProductsTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 function formatCurrency(value: string | number) {
@@ -44,7 +46,9 @@ export function ProductsTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: ProductsTableProps) {
   return (
     <>
@@ -130,8 +134,9 @@ export function ProductsTable({
       page={page}
       totalPages={totalPages}
       total={total}
-      pageSize={20}
+      pageSize={pageSize}
       onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
       itemLabel="produkter"
     />
     </>

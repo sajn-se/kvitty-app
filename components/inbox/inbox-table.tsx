@@ -29,7 +29,9 @@ interface InboxTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 export function InboxTable({
@@ -40,7 +42,9 @@ export function InboxTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: InboxTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedEmail, setSelectedEmail] = useState<InboxEmail | null>(null);
@@ -111,8 +115,9 @@ export function InboxTable({
         page={page}
         totalPages={totalPages}
         total={total}
-        pageSize={20}
+        pageSize={pageSize}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
         itemLabel="e-postmeddelanden"
       />
 

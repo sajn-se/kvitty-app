@@ -19,22 +19,28 @@ interface PayrollPageClientProps {
   workspaceSlug: string;
 }
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export function PayrollPageClient({ workspaceSlug }: PayrollPageClientProps) {
   const { workspace } = useWorkspace();
   const [createOpen, setCreateOpen] = useState(false);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
 
   const { data, isLoading } = trpc.payroll.listRuns.useQuery({
     workspaceId: workspace.id,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const runs = data?.items;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   if (isLoading) {
     return (
@@ -89,7 +95,9 @@ export function PayrollPageClient({ workspaceSlug }: PayrollPageClientProps) {
             page={page}
             totalPages={totalPages}
             total={total}
+            pageSize={pageSize}
             onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
           />
         </Card>
       )}

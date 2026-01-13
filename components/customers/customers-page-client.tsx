@@ -12,7 +12,7 @@ import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { CustomersTable } from "@/components/customers/customers-table";
 import { CreateInvoiceDialog } from "@/components/invoices/create-invoice-dialog";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export function CustomersPageClient() {
   const { workspace } = useWorkspace();
@@ -20,17 +20,23 @@ export function CustomersPageClient() {
   const [createOpen, setCreateOpen] = useState(false);
   const [invoiceCustomerId, setInvoiceCustomerId] = useState<string | null>(null);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
   const utils = trpc.useUtils();
 
   const { data, isLoading } = trpc.customers.list.useQuery({
     workspaceId: workspace.id,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const customers = data?.items;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   const deleteCustomer = trpc.customers.delete.useMutation({
     onSuccess: () => utils.customers.list.invalidate(),
@@ -77,7 +83,9 @@ export function CustomersPageClient() {
           page={page}
           totalPages={totalPages}
           total={total}
+          pageSize={pageSize}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       )}
 

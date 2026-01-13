@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { useQueryState, parseAsInteger } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Spinner } from "@/components/ui/spinner";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AccountTransactionsTable } from "@/components/bank/account-transactions-table";
 
-const PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 50;
 
 interface AccountDetailClientProps {
   accountNumber: number;
@@ -21,8 +21,13 @@ export function AccountDetailClient({ accountNumber, workspaceSlug }: AccountDet
   const router = useRouter();
   const { workspace } = useWorkspace();
 
-  const [page, setPage] = useState(0);
-  const offset = page * PAGE_SIZE;
+  const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   const { data: account, isLoading: accountLoading } =
     trpc.bankAccounts.getByAccountNumber.useQuery({
@@ -34,8 +39,8 @@ export function AccountDetailClient({ accountNumber, workspaceSlug }: AccountDet
     trpc.journalEntries.listByAccount.useQuery({
       accountNumber,
       workspaceId: workspace.id,
-      limit: PAGE_SIZE,
-      offset,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
     });
 
   if (accountLoading) {
@@ -59,8 +64,7 @@ export function AccountDetailClient({ accountNumber, workspaceSlug }: AccountDet
 
   const entries = data?.entries || [];
   const total = data?.total || 0;
-  const hasMore = data?.hasMore || false;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
   return (
     <>
@@ -95,36 +99,15 @@ export function AccountDetailClient({ accountNumber, workspaceSlug }: AccountDet
           isLoading={entriesLoading}
         />
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between pb-6">
-            <div className="text-sm text-muted-foreground">
-              Visar {offset + 1}-{Math.min(offset + PAGE_SIZE, total)} av {total} transaktioner
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0 || entriesLoading}
-              >
-                <CaretLeftIcon className="size-4" />
-                Föregående
-              </Button>
-              <div className="text-sm text-muted-foreground">
-                Sida {page + 1} av {totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={!hasMore || entriesLoading}
-              >
-                Nästa
-                <CaretRightIcon className="size-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          itemLabel="transaktioner"
+        />
       </div>
     </>
   );

@@ -39,7 +39,7 @@ interface BookkeepingPageClientProps {
   initialPeriodId: string;
 }
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 type JournalEntry = {
   id: string;
@@ -71,6 +71,7 @@ export function BookkeepingPageClient({
   const { workspace, periods } = useWorkspace();
   const [periodId, setPeriodId] = useQueryState("periodId", parseAsString.withDefault(""));
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
   const [search, setSearch] = useQueryState("search", parseAsString.withDefault(""));
   const [dateFrom, setDateFrom] = useQueryState("dateFrom", parseAsString.withDefault(""));
   const [dateTo, setDateTo] = useQueryState("dateTo", parseAsString.withDefault(""));
@@ -127,6 +128,11 @@ export function BookkeepingPageClient({
     setPage(1);
   };
 
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
+
   const hasActiveFilters = search || dateFrom || dateTo;
 
   // Fetch journal entries for the selected period
@@ -134,8 +140,8 @@ export function BookkeepingPageClient({
     {
       workspaceId: workspace.id,
       fiscalPeriodId: currentPeriodId,
-      limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
       search: search || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
@@ -147,7 +153,7 @@ export function BookkeepingPageClient({
 
   const entries = data?.items;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
   if (periods.length === 0) {
     return (
@@ -375,8 +381,9 @@ export function BookkeepingPageClient({
               page={page}
               totalPages={totalPages}
               total={total}
-              pageSize={PAGE_SIZE}
+              pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
               itemLabel="verifikationer"
             />
           </>
