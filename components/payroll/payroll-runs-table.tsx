@@ -29,7 +29,9 @@ interface PayrollRunsTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -46,7 +48,9 @@ export function PayrollRunsTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: PayrollRunsTableProps) {
   const formatCurrency = (value: string | null) => {
     if (!value) return "0 kr";
@@ -104,8 +108,9 @@ export function PayrollRunsTable({
         page={page}
         totalPages={totalPages}
         total={total}
-        pageSize={20}
+        pageSize={pageSize}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
         itemLabel="lönekörningar"
       />
     </>

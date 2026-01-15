@@ -28,7 +28,7 @@ const statusLabels: Record<StatusFilter, string> = {
   error: "Fel",
 };
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export function InboxPageClient() {
   const { workspace } = useWorkspace();
@@ -37,21 +37,27 @@ export function InboxPageClient() {
     parseAsStringLiteral(statusOptions).withDefault("all")
   );
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
 
   const { data, isLoading, error, refetch } = trpc.inbox.list.useQuery({
     workspaceId: workspace.id,
     status: statusFilter,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const emails = data?.emails;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
   // Reset to page 1 when filter changes
   const handleFilterChange = (value: StatusFilter) => {
     setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
     setPage(1);
   };
 
@@ -160,7 +166,9 @@ export function InboxPageClient() {
           page={page}
           totalPages={totalPages}
           total={total}
+          pageSize={pageSize}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       ) : null}
     </div>

@@ -9,6 +9,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ChatTriggerButton } from "@/components/ai-chat/chat-trigger-button";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 
 export interface BreadcrumbLinkItem {
   label: string;
@@ -68,6 +69,7 @@ export function PageHeader({
       </div>
       <div className="flex items-center gap-2 px-4">
         {actions}
+        <NotificationCenter />
         <ChatTriggerButton />
       </div>
     </header>

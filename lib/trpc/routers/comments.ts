@@ -1,8 +1,20 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, workspaceProcedure } from "../init";
-import { comments, bankTransactions, journalEntries, auditLogs } from "@/lib/db/schema";
+import {
+  comments,
+  bankTransactions,
+  journalEntries,
+  auditLogs,
+  workspaces,
+  user,
+} from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import {
+  createCommentForBankTransactionSchema,
+  createCommentForJournalEntrySchema,
+} from "@/lib/validations/comments";
+import { createNotification } from "@/lib/utils/create-notification";
 
 export const commentsRouter = router({
   list: workspaceProcedure
@@ -62,13 +74,7 @@ export const commentsRouter = router({
     }),
 
   create: workspaceProcedure
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        bankTransactionId: z.string(),
-        content: z.string().min(1, "Kommentar krävs"),
-      })
-    )
+    .input(createCommentForBankTransactionSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify bank transaction belongs to workspace
       const transaction = await ctx.db.query.bankTransactions.findFirst({
@@ -87,6 +93,7 @@ export const commentsRouter = router({
         .values({
           bankTransactionId: input.bankTransactionId,
           content: input.content,
+          mentions: input.mentions || [],
           createdBy: ctx.session.user.id,
         })
         .returning();
@@ -101,17 +108,41 @@ export const commentsRouter = router({
         changes: { after: comment },
       });
 
+      // Create notifications for mentioned users
+      if (input.mentions && input.mentions.length > 0) {
+        const workspace = await ctx.db.query.workspaces.findFirst({
+          where: eq(workspaces.id, ctx.workspaceId),
+        });
+
+        const commenter = await ctx.db.query.user.findFirst({
+          where: eq(user.id, ctx.session.user.id),
+        });
+
+        // Filter out self-mentions
+        const mentionedUserIds = input.mentions.filter(
+          (userId) => userId !== ctx.session.user.id
+        );
+
+        // Create notification for each mentioned user
+        await Promise.all(
+          mentionedUserIds.map((userId) =>
+            createNotification({
+              userId,
+              workspaceId: ctx.workspaceId,
+              type: "comment_mention",
+              title: `${commenter?.name || "Någon"} nämnde dig i en kommentar`,
+              message: input.content.substring(0, 100),
+              link: `/${workspace?.slug}/bank/${input.bankTransactionId}`,
+            })
+          )
+        );
+      }
+
       return comment;
     }),
 
   createForJournalEntry: workspaceProcedure
-    .input(
-      z.object({
-        workspaceId: z.string(),
-        journalEntryId: z.string(),
-        content: z.string().min(1, "Kommentar krävs"),
-      })
-    )
+    .input(createCommentForJournalEntrySchema)
     .mutation(async ({ ctx, input }) => {
       // Verify journal entry belongs to workspace
       const entry = await ctx.db.query.journalEntries.findFirst({
@@ -130,6 +161,7 @@ export const commentsRouter = router({
         .values({
           journalEntryId: input.journalEntryId,
           content: input.content,
+          mentions: input.mentions || [],
           createdBy: ctx.session.user.id,
         })
         .returning();
@@ -143,6 +175,36 @@ export const commentsRouter = router({
         entityId: comment.id,
         changes: { after: comment },
       });
+
+      // Create notifications for mentioned users
+      if (input.mentions && input.mentions.length > 0) {
+        const workspace = await ctx.db.query.workspaces.findFirst({
+          where: eq(workspaces.id, ctx.workspaceId),
+        });
+
+        const commenter = await ctx.db.query.user.findFirst({
+          where: eq(user.id, ctx.session.user.id),
+        });
+
+        // Filter out self-mentions
+        const mentionedUserIds = input.mentions.filter(
+          (userId) => userId !== ctx.session.user.id
+        );
+
+        // Create notification for each mentioned user
+        await Promise.all(
+          mentionedUserIds.map((userId) =>
+            createNotification({
+              userId,
+              workspaceId: ctx.workspaceId,
+              type: "comment_mention",
+              title: `${commenter?.name || "Någon"} nämnde dig i en kommentar`,
+              message: input.content.substring(0, 100),
+              link: `/${workspace?.slug}/verifikationer/${input.journalEntryId}`,
+            })
+          )
+        );
+      }
 
       return comment;
     }),

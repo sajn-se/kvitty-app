@@ -11,25 +11,31 @@ import type { Product } from "@/lib/db/schema";
 import { ProductFormDialog } from "@/components/products/product-form-dialog";
 import { ProductsTable } from "@/components/products/products-table";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 export function ProductsPageClient() {
   const { workspace } = useWorkspace();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
   const utils = trpc.useUtils();
 
   const { data, isLoading } = trpc.products.list.useQuery({
     workspaceId: workspace.id,
     includeInactive: true,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const products = data?.items;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   const deleteProduct = trpc.products.delete.useMutation({
     onSuccess: () => utils.products.list.invalidate({ workspaceId: workspace.id }),
@@ -79,7 +85,9 @@ export function ProductsPageClient() {
           page={page}
           totalPages={totalPages}
           total={total}
+          pageSize={pageSize}
           onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       )}
 

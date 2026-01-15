@@ -30,7 +30,9 @@ interface BankTransactionsTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 export function BankTransactionsTable({
@@ -43,7 +45,9 @@ export function BankTransactionsTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: BankTransactionsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedTransaction, setSelectedTransaction] =
@@ -129,8 +133,9 @@ export function BankTransactionsTable({
         page={page}
         totalPages={totalPages}
         total={total}
-        pageSize={20}
+        pageSize={pageSize}
         onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
         itemLabel="transaktioner"
       />
 

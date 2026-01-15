@@ -56,7 +56,9 @@ interface InvoicesTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 // Display status types (includes calculated statuses)
@@ -118,7 +120,9 @@ export function InvoicesTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: InvoicesTableProps) {
   const formatCurrency = (value: string) => {
     return parseFloat(value).toLocaleString("sv-SE", {
@@ -306,8 +310,9 @@ export function InvoicesTable({
       page={page}
       totalPages={totalPages}
       total={total}
-      pageSize={20}
+      pageSize={pageSize}
       onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
       itemLabel="fakturor"
     />
     </>

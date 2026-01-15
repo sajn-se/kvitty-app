@@ -204,6 +204,22 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// AI Usage tracking table - per-user monthly quota
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createCuid()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    yearMonth: text("year_month").notNull(), // Format: "2026-01"
+    requestCount: integer("request_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [unique().on(table.userId, table.yearMonth)]
+);
+
 // ============================================
 // Kvitty Business Tables
 // ============================================
@@ -244,6 +260,8 @@ export const workspaces = pgTable("workspaces", {
   isVatExempt: boolean("is_vat_exempt").default(false).notNull(), // Småföretagare <120k/year
   // Email inbox settings
   inboxEmailSlug: text("inbox_email_slug"), // e.g., "kvitty" → kvitty.{slug}@inbox.kvitty.se
+  // Enskild firma specific fields
+  ownerPersonalNumber: text("owner_personal_number"), // Encrypted personnummer for enskild firma owner
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   createdBy: text("created_by").references(() => user.id),
@@ -278,6 +296,21 @@ export const workspaceInvites = pgTable("workspace_invites", {
   expiresAt: timestamp("expires_at"),
   usedAt: timestamp("used_at"),
   usedBy: text("used_by").references(() => user.id),
+});
+
+// API Keys for external API access
+export const apiKeys = pgTable("api_keys", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(), // e.g., "Production API Key"
+  keyHash: text("key_hash").notNull(), // SHA256 hash of the key
+  keyPrefix: text("key_prefix").notNull(), // First 12 chars for identification (e.g., "kv_abc123...")
+  lastUsedAt: timestamp("last_used_at"),
+  createdBy: text("created_by").references(() => user.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"), // Soft delete - set when revoked
 });
 
 // Allowed sender email addresses per user per workspace
@@ -357,6 +390,30 @@ export const inboxAttachmentLinks = pgTable(
   ]
 );
 
+// Notifications for users (workspace-scoped)
+export const notifications = pgTable("notifications", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+
+  // Content
+  type: text("type").notNull(), // "comment_mention", "inbox_email", etc.
+  title: text("title").notNull(),
+  message: text("message"),
+  link: text("link"), // Optional link to related entity
+
+  // Read tracking (null = unread)
+  readAt: timestamp("read_at"),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const fiscalPeriods = pgTable(
   "fiscal_periods",
   {
@@ -408,6 +465,58 @@ export const annualClosings = pgTable("annual_closings", {
   unique().on(table.workspaceId, table.fiscalPeriodId)
 ]);
 
+// NE-bilaga entries for enskild firma tax adjustments
+export const nebilagaEntries = pgTable("nebilaga_entries", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  fiscalPeriodId: text("fiscal_period_id")
+    .notNull()
+    .references(() => fiscalPeriods.id, { onDelete: "cascade" }),
+  // Tax adjustments (R13-R48) - values in öre (cents) for precision
+  // R13-R16: Justeringar på företagsnivå
+  r13: integer("r13").default(0), // Bokförda kostnader som inte ska dras av
+  r14: integer("r14").default(0), // Bokförda intäkter som inte ska tas upp
+  r15: integer("r15").default(0), // Intäkter som inte bokförts men ska tas upp
+  r16: integer("r16").default(0), // Kostnader som inte bokförts men ska dras av
+  // R18-R20: NEA-relaterade justeringar
+  r18: integer("r18").default(0), // Avgående belopp (från NEA)
+  r19: integer("r19").default(0), // Tillkommande belopp (från NEA)
+  r20: integer("r20").default(0), // Resultat från annan verksamhet
+  // R21-R32: Individuella justeringar
+  r21: integer("r21").default(0), // Kostnader för resor till/från arbetet
+  r22: integer("r22").default(0), // Ökad avsättning till ersättningsfond
+  r23: integer("r23").default(0), // Minskad avsättning till ersättningsfond
+  r24: integer("r24").default(0), // Sjukpenning
+  r25: integer("r25").default(0), // Återfört underskott vid ackord
+  r26: integer("r26").default(0), // Återfört underskott - övriga
+  r27: integer("r27").default(0), // Annan justerad intäkt (ökning)
+  r28: integer("r28").default(0), // Annan justerad kostnad (minskning)
+  r29: integer("r29").default(0), // Outnyttjat underskott från förra året
+  r30: integer("r30").default(0), // Underskott som inte får kvittas
+  r31: integer("r31").default(0), // Underskott som kvittas mot kapital
+  r32: integer("r32").default(0), // Övrigt
+  // R34, R36: Avsättningar
+  r34: integer("r34").default(0), // Avdrag för årets avsättning till periodiseringsfond
+  r36: integer("r36").default(0), // Avdrag för ökning av expansionsfond
+  // R37-R46: Räntefördelning och övriga
+  r37: integer("r37").default(0), // Positiv räntefördelning
+  r38: integer("r38").default(0), // Negativ räntefördelning
+  r39: integer("r39").default(0), // Avdrag för ökning av skogskonto
+  r40: integer("r40").default(0), // Uttag från skogskonto
+  r41: integer("r41").default(0), // Övriga skattemässiga intäkter
+  r42: integer("r42").default(0), // Övriga skattemässiga avdrag
+  r43: integer("r43").default(0), // Kapitalunderlag för räntefördelning (info)
+  r44: integer("r44").default(0), // Sparat fördelningsbelopp (info)
+  r45: integer("r45").default(0), // Kapitalunderlag för expansionsfond (info)
+  r46: integer("r46").default(0), // Expansionsfond vid årets utgång (info)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  unique().on(table.workspaceId, table.fiscalPeriodId)
+]);
+
 // Bank import batches for tracking import history
 export const bankImportBatches = pgTable("bank_import_batches", {
   id: text("id").primaryKey().$defaultFn(() => createCuid()),
@@ -449,9 +558,7 @@ export const bankTransactions = pgTable("bank_transactions", {
   mappedToJournalEntryId: text("mapped_to_journal_entry_id").references(() => journalEntries.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => user.id),
+  createdBy: text("created_by").references(() => user.id), // Nullable for API access
 });
 
 export const attachments = pgTable("attachments", {
@@ -476,6 +583,7 @@ export const comments = pgTable("comments", {
   journalEntryId: text("journal_entry_id")
     .references(() => journalEntries.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  mentions: jsonb("mentions").$type<string[]>(), // Array of userIds mentioned
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: text("created_by")
     .notNull()
@@ -487,9 +595,7 @@ export const auditLogs = pgTable("audit_logs", {
   workspaceId: text("workspace_id")
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id),
+  userId: text("user_id").references(() => user.id), // Nullable for API access
   action: text("action").notNull(), // 'create', 'update', 'delete'
   entityType: text("entity_type").notNull(), // 'verification', 'attachment', 'comment'
   entityId: text("entity_id").notNull(),
@@ -538,9 +644,7 @@ export const journalEntries = pgTable("journal_entries", {
   isLocked: boolean("is_locked").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => user.id),
+  createdBy: text("created_by").references(() => user.id), // Nullable for API access
 });
 
 // Journal entry lines (debit/credit rows)
@@ -842,6 +946,15 @@ export const userRelations = relations(user, ({ many }) => ({
   payrollRuns: many(payrollRuns),
   workspaceAllowedEmails: many(workspaceAllowedEmails),
   inboxAttachmentLinks: many(inboxAttachmentLinks),
+  aiUsage: many(aiUsage),
+  notifications: many(notifications),
+}));
+
+export const aiUsageRelations = relations(aiUsage, ({ one }) => ({
+  user: one(user, {
+    fields: [aiUsage.userId],
+    references: [user.id],
+  }),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -865,6 +978,7 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   }),
   members: many(workspaceMembers),
   invites: many(workspaceInvites),
+  apiKeys: many(apiKeys),
   fiscalPeriods: many(fiscalPeriods),
   bankTransactions: many(bankTransactions),
   auditLogs: many(auditLogs),
@@ -880,6 +994,10 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   allowedEmails: many(workspaceAllowedEmails),
   inboxEmails: many(inboxEmails),
   inboxAttachments: many(inboxAttachments),
+  // Notifications
+  notifications: many(notifications),
+  // NE-bilaga for enskild firma
+  nebilagaEntries: many(nebilagaEntries),
 }));
 
 export const workspaceMembersRelations = relations(
@@ -913,6 +1031,17 @@ export const workspaceInvitesRelations = relations(
     }),
   })
 );
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [apiKeys.workspaceId],
+    references: [workspaces.id],
+  }),
+  createdByUser: one(user, {
+    fields: [apiKeys.createdBy],
+    references: [user.id],
+  }),
+}));
 
 export const workspaceAllowedEmailsRelations = relations(
   workspaceAllowedEmails,
@@ -976,6 +1105,17 @@ export const inboxAttachmentLinksRelations = relations(
   })
 );
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(user, {
+    fields: [notifications.userId],
+    references: [user.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [notifications.workspaceId],
+    references: [workspaces.id],
+  }),
+}));
+
 export const fiscalPeriodsRelations = relations(
   fiscalPeriods,
   ({ one, many }) => ({
@@ -985,6 +1125,7 @@ export const fiscalPeriodsRelations = relations(
     }),
     journalEntries: many(journalEntries),
     annualClosing: one(annualClosings),
+    nebilagaEntry: one(nebilagaEntries),
     lockedByUser: one(user, {
       fields: [fiscalPeriods.lockedBy],
       references: [user.id],
@@ -1010,6 +1151,20 @@ export const annualClosingsRelations = relations(
     finalizedByUser: one(user, {
       fields: [annualClosings.finalizedBy],
       references: [user.id],
+    }),
+  })
+);
+
+export const nebilagaEntriesRelations = relations(
+  nebilagaEntries,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [nebilagaEntries.workspaceId],
+      references: [workspaces.id],
+    }),
+    fiscalPeriod: one(fiscalPeriods, {
+      fields: [nebilagaEntries.fiscalPeriodId],
+      references: [fiscalPeriods.id],
     }),
   })
 );
@@ -1356,6 +1511,9 @@ export type NewAnnualClosing = typeof annualClosings.$inferInsert;
 export type AnnualClosingStatus = (typeof annualClosingStatusEnum.enumValues)[number];
 export type ClosingPackage = (typeof closingPackageEnum.enumValues)[number];
 
+export type NebilagaEntry = typeof nebilagaEntries.$inferSelect;
+export type NewNebilagaEntry = typeof nebilagaEntries.$inferInsert;
+
 export type WorkspaceAllowedEmail = typeof workspaceAllowedEmails.$inferSelect;
 export type NewWorkspaceAllowedEmail = typeof workspaceAllowedEmails.$inferInsert;
 
@@ -1368,3 +1526,9 @@ export type NewInboxAttachment = typeof inboxAttachments.$inferInsert;
 
 export type InboxAttachmentLink = typeof inboxAttachmentLinks.$inferSelect;
 export type NewInboxAttachmentLink = typeof inboxAttachmentLinks.$inferInsert;
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
+
+export type AiUsage = typeof aiUsage.$inferSelect;
+export type NewAiUsage = typeof aiUsage.$inferInsert;

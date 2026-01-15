@@ -7,6 +7,7 @@ import { commentsRouter } from "./routers/comments";
 import { invitesRouter } from "./routers/invites";
 import { membersRouter } from "./routers/members";
 import { usersRouter } from "./routers/users";
+import { notificationsRouter } from "./routers/notifications";
 // Full bookkeeping routers
 import { bankAccountsRouter } from "./routers/bank-accounts";
 import { journalEntriesRouter } from "./routers/journal-entries";
@@ -17,9 +18,12 @@ import { invoicesRouter } from "./routers/invoices";
 import { productsRouter } from "./routers/products";
 import { reportsRouter } from "./routers/reports";
 import { bokslutRouter } from "./routers/bokslut";
+import { nebilagaRouter } from "./routers/nebilaga";
 // Inbox routers
 import { inboxRouter } from "./routers/inbox";
 import { allowedEmailsRouter } from "./routers/allowed-emails";
+// API key management
+import { apiKeysRouter } from "./routers/api-keys";
 
 export const appRouter = router({
   workspaces: workspacesRouter,
@@ -30,6 +34,7 @@ export const appRouter = router({
   invites: invitesRouter,
   members: membersRouter,
   users: usersRouter,
+  notifications: notificationsRouter,
   // Full bookkeeping routers
   bankAccounts: bankAccountsRouter,
   journalEntries: journalEntriesRouter,
@@ -40,9 +45,12 @@ export const appRouter = router({
   products: productsRouter,
   reports: reportsRouter,
   bokslut: bokslutRouter,
+  nebilaga: nebilagaRouter,
   // Inbox routers
   inbox: inboxRouter,
   allowedEmails: allowedEmailsRouter,
+  // API key management
+  apiKeys: apiKeysRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -14,6 +14,32 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Format amount stored in öre (cents) to SEK currency string
+ * Used for bookkeeping values that are stored as integers for precision
+ */
+export function formatCurrencyFromOre(ore: number): string {
+  const kr = ore / 100;
+  return new Intl.NumberFormat("sv-SE", {
+    style: "currency",
+    currency: "SEK",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(kr);
+}
+
+/**
+ * Format amount stored in öre (cents) to number string (no currency symbol)
+ * Used for input field display values
+ */
+export function formatNumberFromOre(ore: number): string {
+  const kr = ore / 100;
+  return new Intl.NumberFormat("sv-SE", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(kr);
+}
+
 export function calculateAgeFromPersonnummer(personalNumber: string): number | null {
   const cleaned = personalNumber.replace(/\D/g, "");
   

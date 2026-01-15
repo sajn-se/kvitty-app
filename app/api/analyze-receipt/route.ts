@@ -2,6 +2,10 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { visionModel } from "@/lib/ai";
 import { getSession } from "@/lib/session";
+import {
+  checkAndIncrementAIUsage,
+  AIRateLimitError,
+} from "@/lib/ai/rate-limiter";
 
 const receiptSchema = z.object({
   success: z.boolean().describe("Om analysen lyckades"),
@@ -75,6 +79,23 @@ export async function POST(req: Request) {
     const session = await getSession();
     if (!session) {
       return new Response("Unauthorized", { status: 401 });
+    }
+
+    // Check AI usage limit
+    try {
+      await checkAndIncrementAIUsage(session.user.id);
+    } catch (error) {
+      if (error instanceof AIRateLimitError) {
+        return Response.json(
+          {
+            success: false,
+            error:
+              "Du har nått din månatliga gräns för AI-förfrågningar (50 st). Gränsen återställs den 1:a nästa månad.",
+          },
+          { status: 429 }
+        );
+      }
+      throw error;
     }
 
     const formData = await req.formData();

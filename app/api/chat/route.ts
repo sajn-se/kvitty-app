@@ -7,6 +7,10 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { workspaceMembers } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import {
+  checkAndIncrementAIUsage,
+  AIRateLimitError,
+} from "@/lib/ai/rate-limiter";
 
 export const maxDuration = 30;
 
@@ -35,6 +39,25 @@ export async function POST(req: Request) {
 
     if (!membership) {
       return new Response("Forbidden", { status: 403 });
+    }
+
+    // Check AI usage limit
+    try {
+      await checkAndIncrementAIUsage(session.user.id);
+    } catch (error) {
+      if (error instanceof AIRateLimitError) {
+        return Response.json(
+          {
+            error: "AI usage limit exceeded",
+            message:
+              "Du har nått din månatliga gräns för AI-förfrågningar (50 st). Gränsen återställs den 1:a nästa månad.",
+            limit: error.limit,
+            remaining: error.remaining,
+          },
+          { status: 429 }
+        );
+      }
+      throw error;
     }
 
     const tools = createChatTools(workspaceId, fiscalPeriodId);

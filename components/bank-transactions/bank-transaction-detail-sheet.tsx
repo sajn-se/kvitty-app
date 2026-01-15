@@ -24,12 +24,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import type { bankTransactions } from "@/lib/db/schema";
 import { EditBankTransactionDialog } from "./edit-bank-transaction-dialog";
+import { MentionTextarea } from "@/components/comments/mention-textarea";
+import { CommentContent } from "@/components/comments/comment-content";
 
 type BankTransaction = typeof bankTransactions.$inferSelect;
 
@@ -52,6 +53,7 @@ export function BankTransactionDetailSheet({
   const utils = trpc.useUtils();
   const { upload: fileUpload, isUploading } = useFileUpload();
   const [comment, setComment] = useState("");
+  const [mentions, setMentions] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -429,7 +431,7 @@ export function BankTransactionDetailSheet({
                       <p className="text-sm text-muted-foreground">
                         {new Date(c.createdAt).toLocaleDateString("sv-SE")}
                       </p>
-                      <p className="text-sm mt-1">{c.content}</p>
+                      <CommentContent content={c.content} className="text-sm mt-1" />
                     </div>
                   </div>
                 ))}
@@ -441,10 +443,12 @@ export function BankTransactionDetailSheet({
               </div>
 
               <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 p-4 border-t bg-background">
-                <Textarea
+                <MentionTextarea
+                  workspaceId={workspaceId}
                   placeholder="Skriv en kommentar..."
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  onChange={setComment}
+                  onMentionsChange={setMentions}
                   className="min-h-[80px]"
                 />
                 <div className="flex justify-end">
@@ -455,6 +459,7 @@ export function BankTransactionDetailSheet({
                         workspaceId,
                         bankTransactionId: transaction.id,
                         content: comment,
+                        mentions,
                       })
                     }
                     disabled={!comment.trim() || addComment.isPending}

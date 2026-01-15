@@ -42,6 +42,8 @@ import {
   Warning,
   LockSimple,
   Info,
+  FileText,
+  ArrowRight,
 } from "@phosphor-icons/react";
 import type { AnnualClosingStatus, ClosingPackage } from "@/lib/db/schema";
 
@@ -142,6 +144,11 @@ export function BokslutClient({
     { workspaceId, fiscalPeriodId: selectedPeriodId },
     { enabled: !!selectedPeriodId }
   );
+
+  // Check if NE-bilaga is available (only for enskild firma)
+  const { data: nebilagaAvailability } = trpc.nebilaga.isAvailable.useQuery({
+    workspaceId,
+  });
 
   const completeReconciliation = trpc.bokslut.completeReconciliation.useMutation({
     onSuccess: () => {
@@ -768,6 +775,62 @@ export function BokslutClient({
           )}
         </div>
       </WizardStepCard>
+
+      {/* Dina dokument - Show after finalization for enskild firma */}
+      {isFinalized && nebilagaAvailability?.available && (
+        <Card className="mt-6">
+          <CardContent className="pt-6">
+            <h3 className="font-semibold mb-2">Vad du behöver göra härnäst</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Fyll i din inkomstdeklaration på skatteverket.se
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              I din personliga skattedeklaration ska beloppen från din NE-bilaga
+              fyllas i din privata skattedeklaration och skickas in till
+              Skatteverket före tidsfristen löper ut, vilket varierar beroende på
+              datum för bokslut. Läs mer på ditt företags sida på Skatteverket.
+            </p>
+
+            <div className="border rounded-lg divide-y">
+              <div className="p-4 text-sm font-medium text-muted-foreground">
+                Dina dokument
+              </div>
+              <a
+                href={`/${workspaceSlug}/bokslut/nebilaga?period=${selectedPeriodId}`}
+                className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="size-5 text-muted-foreground" />
+                  <span className="font-medium">
+                    NE-bilaga-{currentPeriod?.label || selectedPeriodId}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-foreground">
+                  <span>Deklarationshjälp</span>
+                  <ArrowRight className="size-4" />
+                </div>
+              </a>
+            </div>
+
+            {!nebilagaAvailability.hasOwnerPersonalNumber && (
+              <Alert className="mt-4">
+                <Warning className="size-4" />
+                <AlertTitle>Personnummer saknas</AlertTitle>
+                <AlertDescription>
+                  För att fylla i NE-bilagan behöver du ange ditt personnummer i{" "}
+                  <a
+                    href={`/${workspaceSlug}/installningar`}
+                    className="underline hover:text-foreground"
+                  >
+                    inställningarna
+                  </a>
+                  .
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

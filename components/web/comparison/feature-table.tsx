@@ -7,8 +7,8 @@ type Feature = {
 };
 
 const pricingFeatures: Feature[] = [
-  { name: "Grundpris", kvitty: "49 kr/mån", bokio: "249 kr/mån" },
-  { name: "Full bokföring", kvitty: "149 kr/mån", bokio: "249 kr/mån" },
+  { name: "Grundpris", kvitty: "Gratis (49 kr/mån)", bokio: "249 kr/mån" },
+  { name: "Full bokföring", kvitty: "Gratis (49 kr/mån)", bokio: "249 kr/mån" },
   { name: "Self-hosted", kvitty: "0 kr/mån", bokio: "-" },
 ];
 
@@ -23,11 +23,16 @@ const coreFeatures: Feature[] = [
 ];
 
 const advancedFeatures: Feature[] = [
-  { name: "Fakturering", kvitty: false, bokio: true },
-  { name: "Lönehantering", kvitty: false, bokio: true },
-  { name: "Bankintegration", kvitty: false, bokio: true },
-  { name: "Momsdeklaration", kvitty: false, bokio: true },
-  { name: "Årsredovisning", kvitty: false, bokio: true },
+  { name: "Fakturering", kvitty: true, bokio: true },
+  { name: "Lönehantering", kvitty: true, bokio: true },
+  { name: "Bankintegration", kvitty: true, bokio: true },
+  { name: "Momsdeklaration", kvitty: true, bokio: true },
+  { name: "Årsredovisning", kvitty: true, bokio: true },
+  { name: "ROT/RUT-avdrag", kvitty: true, bokio: true },
+  { name: "Peppol e-faktura", kvitty: true, bokio: true },
+  { name: "Vinstmarginalbeskattning", kvitty: true, bokio: false },
+  { name: "AI-assisterad bokföring", kvitty: true, bokio: false },
+  { name: "Email-inbox", kvitty: true, bokio: false },
 ];
 
 const flexibilityFeatures: Feature[] = [

@@ -41,6 +41,49 @@ const featureCategories: FeatureCategory[] = [
     ],
   },
   {
+    name: "Fakturering",
+    features: [
+      { name: "Fakturagenerering", plans: ["full", "selfHosted"] },
+      { name: "ROT/RUT-avdrag", plans: ["full", "selfHosted"] },
+      { name: "Peppol e-faktura", plans: ["full", "selfHosted"] },
+      { name: "Vinstmarginalbeskattning", plans: ["full", "selfHosted"] },
+      { name: "Påminnelser", plans: ["full", "selfHosted"] },
+    ],
+  },
+  {
+    name: "Lönehantering",
+    features: [
+      { name: "Löneberäkning", plans: ["full", "selfHosted"] },
+      { name: "Arbetsgivardeklaration (AGI)", plans: ["full", "selfHosted"] },
+      { name: "Lönebesked", plans: ["full", "selfHosted"] },
+      { name: "Skattetabeller", plans: ["full", "selfHosted"] },
+    ],
+  },
+  {
+    name: "Bank & transaktioner",
+    features: [
+      { name: "Bankimport (CSV, OFX, SIE)", plans: ["full", "selfHosted"] },
+      { name: "Dubblettdetektering", plans: ["full", "selfHosted"] },
+    ],
+  },
+  {
+    name: "Rapporter",
+    features: [
+      { name: "Resultaträkning", plans: ["full", "selfHosted"] },
+      { name: "Balansräkning", plans: ["full", "selfHosted"] },
+      { name: "Momsrapport", plans: ["full", "selfHosted"] },
+      { name: "Bokslut (K1/K2/K3)", plans: ["full", "selfHosted"] },
+    ],
+  },
+  {
+    name: "AI & automation",
+    features: [
+      { name: "AI-assisterad bokföring", plans: ["full", "selfHosted"] },
+      { name: "Kvittoanalys", plans: ["full", "selfHosted"] },
+      { name: "Email-inbox", plans: ["full", "selfHosted"] },
+    ],
+  },
+  {
     name: "Team & samarbete",
     features: [
       { name: "Bjud in teammedlemmar", plans: ["verification", "full", "selfHosted"] },
@@ -67,7 +110,7 @@ const featureCategories: FeatureCategory[] = [
 
 const plans = [
   { id: "verification" as const, name: "Kvitty Lite", price: "Gratis" },
-  { id: "full" as const, name: "Kvitty Online", price: "49 kr/mån", recommended: true },
+  { id: "full" as const, name: "Kvitty Online", price: "Gratis (49 kr/mån)", recommended: true },
   { id: "selfHosted" as const, name: "Self-hosted", price: "Gratis" },
 ];
 
@@ -106,11 +149,6 @@ export function FeaturesTable() {
                   <div className="flex flex-col items-center gap-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{plan.name}</span>
-                      {plan.recommended && (
-                        <Badge variant="default" className="text-xs">
-                          Rekommenderas
-                        </Badge>
-                      )}
                     </div>
                     <span className="text-xs text-muted-foreground">{plan.price}</span>
                   </div>

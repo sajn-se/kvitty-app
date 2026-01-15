@@ -7,6 +7,15 @@ import {
   PaginationContent,
   PaginationItem,
 } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 interface TablePaginationProps {
   page: number;
@@ -14,6 +23,7 @@ interface TablePaginationProps {
   total: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
   itemLabel?: string;
 }
 
@@ -23,10 +33,9 @@ export function TablePagination({
   total,
   pageSize,
   onPageChange,
+  onPageSizeChange,
   itemLabel = "objekt",
 }: TablePaginationProps) {
-  if (totalPages <= 1) return null;
-
   const startItem = (page - 1) * pageSize + 1;
   const endItem = Math.min(page * pageSize, total);
 
@@ -51,51 +60,75 @@ export function TablePagination({
       <p className="text-sm text-muted-foreground">
         Visar {startItem}–{endItem} av {total} {itemLabel}
       </p>
-      <Pagination className="mx-0 w-auto">
-        <PaginationContent>
-          <PaginationItem>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-              className="gap-1 pl-1.5"
+      <div className="flex items-center gap-6">
+        {onPageSizeChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Rader per sida</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <CaretLeft className="size-4" />
-              <span className="hidden sm:block">Föregående</span>
-            </Button>
-          </PaginationItem>
-          {pageNumbers.map((p, i) => (
-            <PaginationItem key={p === "ellipsis" ? `ellipsis-${i}` : p}>
-              {p === "ellipsis" ? (
-                <span className="flex size-8 items-center justify-center">
-                  <DotsThree className="size-4" />
-                </span>
-              ) : (
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {totalPages > 1 && (
+          <Pagination className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
                 <Button
-                  variant={p === page ? "outline" : "ghost"}
-                  size="icon"
-                  onClick={() => onPageChange(p)}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPageChange(page - 1)}
+                  disabled={page <= 1}
+                  className="gap-1 pl-1.5"
                 >
-                  {p}
+                  <CaretLeft className="size-4" />
+                  <span className="hidden sm:block">Föregående</span>
                 </Button>
-              )}
-            </PaginationItem>
-          ))}
-          <PaginationItem>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-              className="gap-1 pr-1.5"
-            >
-              <span className="hidden sm:block">Nästa</span>
-              <CaretRight className="size-4" />
-            </Button>
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+              </PaginationItem>
+              {pageNumbers.map((p, i) => (
+                <PaginationItem key={p === "ellipsis" ? `ellipsis-${i}` : p}>
+                  {p === "ellipsis" ? (
+                    <span className="flex size-8 items-center justify-center">
+                      <DotsThree className="size-4" />
+                    </span>
+                  ) : (
+                    <Button
+                      variant={p === page ? "outline" : "ghost"}
+                      size="icon"
+                      onClick={() => onPageChange(p)}
+                    >
+                      {p}
+                    </Button>
+                  )}
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page >= totalPages}
+                  className="gap-1 pr-1.5"
+                >
+                  <span className="hidden sm:block">Nästa</span>
+                  <CaretRight className="size-4" />
+                </Button>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+      </div>
     </div>
   );
 }

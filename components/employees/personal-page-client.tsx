@@ -15,7 +15,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { AddEmployeeDialog } from "@/components/employees/add-employee-dialog";
 import { EmployeesTable } from "@/components/employees/employees-table";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 interface PersonalPageClientProps {
   workspaceSlug: string;
@@ -25,18 +25,24 @@ export function PersonalPageClient({ workspaceSlug }: PersonalPageClientProps) {
   const { workspace } = useWorkspace();
   const [addOpen, setAddOpen] = useState(false);
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(DEFAULT_PAGE_SIZE));
 
   const utils = trpc.useUtils();
 
   const { data, isLoading } = trpc.employees.list.useQuery({
     workspaceId: workspace.id,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
 
   const employees = data?.items;
   const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   const activeEmployeeCount = employees?.filter((e) => e.isActive).length ?? 0;
   const isAtLimit = activeEmployeeCount >= 25;
@@ -92,7 +98,9 @@ export function PersonalPageClient({ workspaceSlug }: PersonalPageClientProps) {
             page={page}
             totalPages={totalPages}
             total={total}
+            pageSize={pageSize}
             onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
           />
         )}
 

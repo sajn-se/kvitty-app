@@ -101,6 +101,13 @@ export const updateWorkspaceSchema = z.object({
     )
     .optional()
     .nullable(),
+  // Enskild firma specific fields
+  ownerPersonalNumber: z
+    .string()
+    .regex(/^\d{12}$/, "Personnummer måste vara 12 siffror (ÅÅÅÅMMDDXXXX)")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 });
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;

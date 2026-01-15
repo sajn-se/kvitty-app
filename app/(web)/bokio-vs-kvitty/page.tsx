@@ -7,7 +7,7 @@ import { ComparisonCTA } from "@/components/web/comparison/comparison-cta";
 export const metadata: Metadata = {
   title: "Bokio vs Kvitty — Jämförelse av bokföringsprogram",
   description:
-    "Jämför Bokio och Kvitty: funktioner, priser och vad som passar ditt företag bäst. Kvitty erbjuder enkel bokföring från 49 kr/mån med öppen källkod.",
+    "Jämför Bokio och Kvitty: funktioner, priser och vad som passar ditt företag bäst. Kvitty erbjuder gratis bokföring med öppen källkod.",
   keywords: [
     "bokio vs kvitty",
     "bokföringsprogram jämförelse",

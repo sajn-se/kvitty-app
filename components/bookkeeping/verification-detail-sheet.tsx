@@ -37,13 +37,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { formatCurrency } from "@/lib/utils";
 import { EditJournalEntryDialog } from "@/components/journal-entry/edit-journal-entry-dialog";
+import { MentionTextarea } from "@/components/comments/mention-textarea";
+import { CommentContent } from "@/components/comments/comment-content";
 
 type JournalEntry = {
   id: string;
@@ -86,6 +87,7 @@ export function VerificationDetailSheet({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [comment, setComment] = useState("");
+  const [mentions, setMentions] = useState<string[]>([]);
 
   const { data: details } = trpc.journalEntries.get.useQuery(
     { workspaceId, id: entry?.id ?? "" },
@@ -198,6 +200,7 @@ export function VerificationDetailSheet({
       workspaceId,
       journalEntryId: entry.id,
       content: comment,
+      mentions,
     });
   };
 
@@ -398,7 +401,7 @@ export function VerificationDetailSheet({
                         <p className="text-xs text-muted-foreground">
                           {new Date(c.createdAt).toLocaleDateString("sv-SE")}
                         </p>
-                        <p className="text-sm mt-1">{c.content}</p>
+                        <CommentContent content={c.content} className="text-sm mt-1" />
                       </div>
                     </div>
                   ))
@@ -410,10 +413,12 @@ export function VerificationDetailSheet({
               </div>
 
               <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 p-4 border-t bg-background">
-                <Textarea
+                <MentionTextarea
+                  workspaceId={workspaceId}
                   placeholder="Skriv en kommentar..."
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  onChange={setComment}
+                  onMentionsChange={setMentions}
                   className="min-h-[80px]"
                 />
                 <div className="flex justify-end">

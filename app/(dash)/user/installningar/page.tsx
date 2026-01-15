@@ -10,6 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { UserSettingsForm } from "@/components/settings/user-settings-form";
+import { ApiKeysSettings } from "@/components/settings/api-keys-settings";
 
 export const metadata: Metadata = {
   title: "Kontoinställningar — Kvitty",
@@ -52,6 +53,8 @@ export default async function UserSettingsPage() {
           initialName={session.user.name ?? ""}
           email={session.user.email}
         />
+
+        <ApiKeysSettings />
       </div>
     </>
   );

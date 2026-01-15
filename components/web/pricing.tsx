@@ -12,10 +12,12 @@ const verificationFeatures = [
 
 const fullFeatures = [
   "Traditionell bokföring",
-  "Kvittohantering",
-  "Obegränsade verifikationer",
+  "Fakturering med ROT/RUT",
+  "Lönehantering med AGI",
+  "Bankimport",
+  "Momsrapporter & bokslut",
+  "AI-assisterad bokföring",
   "Obegränsad lagring",
-  "Exportera till SIE-fil",
   "Bjud in teammedlemmar",
 ];
 
@@ -108,12 +110,12 @@ export function Pricing() {
             </Badge>
             <div className="mb-6">
               <h3 className="font-medium text-lg mb-4">Kvitty Online</h3>
-              <div className="flex items-baseline gap-1">
-                <span className="font-semibold text-5xl tracking-tight">29</span>
-                <span className="text-muted-foreground text-lg">kr/mån</span>
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold text-5xl tracking-tight">Gratis</span>
+                <span className="text-muted-foreground text-lg line-through">49 kr/mån</span>
               </div>
               <p className="text-muted-foreground text-sm mt-2">
-                Exkl. moms.
+                Normalt 49 kr/mån. Gratis så länge vi är i testfas.
               </p>
             </div>
 

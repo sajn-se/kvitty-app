@@ -34,7 +34,9 @@ interface CustomersTableProps {
   page: number;
   totalPages: number;
   total: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 export function CustomersTable({
@@ -45,7 +47,9 @@ export function CustomersTable({
   page,
   totalPages,
   total,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: CustomersTableProps) {
   const { workspace } = useWorkspace();
 
@@ -133,8 +137,9 @@ export function CustomersTable({
       page={page}
       totalPages={totalPages}
       total={total}
-      pageSize={20}
+      pageSize={pageSize}
       onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
       itemLabel="kunder"
     />
     </>

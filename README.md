@@ -14,6 +14,10 @@
 
 Kvitty is a Swedish bookkeeping and invoicing SaaS application built for small businesses. The application supports both simple receipt management ("simple" mode) and full double-entry bookkeeping ("full_bookkeeping" mode) with payroll management, invoicing, and AGI (Arbetsgivardeklaration) XML generation for Swedish tax reporting.
 
+## API Documentation
+
+API documentation is available at: [http://kvitty.se/api/v1/docs](http://kvitty.se/api/v1/docs)
+
 ## Features
 
 ### Two Modes

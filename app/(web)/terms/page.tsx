@@ -367,8 +367,8 @@ export default function TermsPage() {
           <div>
             <h3 className="font-medium text-foreground mb-2">9.1 Priser</h3>
             <ul className="list-disc pl-6 space-y-1">
-              <li><strong className="text-foreground">Gratis nivå:</strong> Kvitty Online (enkelt läge) — kostnadsfritt</li>
-              <li><strong className="text-foreground">Betald nivå:</strong> Kvitty Online (fullständig bokföring) — från 49 kr/mån exkl. moms</li>
+              <li><strong className="text-foreground">Kvitty Lite:</strong> Kvitty Online (enkelt läge) — kostnadsfritt</li>
+              <li><strong className="text-foreground">Kvitty Online:</strong> Fullständig bokföring — 49 kr/mån (gratis under testperioden)</li>
               <li><strong className="text-foreground">Self-hosted:</strong> Gratis (du ansvarar för egen infrastruktur)</li>
             </ul>
           </div>

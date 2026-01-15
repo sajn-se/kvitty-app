@@ -10,11 +10,11 @@ const imageUrl = `${baseUrl}/assets/SCR-20260105-mywx.png`;
 
 export const metadata: Metadata = {
   title: "Kvitty - Bokföring för småföretag",
-  description: "Enkel bokföring för små team. Hantera kvitton, fakturor, löner och banktransaktioner på ett smidigt sätt. Från 49 kr/månad.",
+  description: "Enkel bokföring för små team. Hantera kvitton, fakturor, löner och banktransaktioner på ett smidigt sätt. Gratis.",
   metadataBase: new URL(baseUrl),
   openGraph: {
     title: "Kvitty - Bokföring för småföretag",
-    description: "Enkel bokföring för små team. Hantera kvitton, fakturor, löner och banktransaktioner på ett smidigt sätt. Från 49 kr/månad.",
+    description: "Enkel bokföring för små team. Hantera kvitton, fakturor, löner och banktransaktioner på ett smidigt sätt. Gratis.",
     url: baseUrl,
     siteName: "Kvitty",
     images: [
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Kvitty - Bokföring för småföretag",
-    description: "Enkel bokföring för små team. Hantera kvitton, fakturor, löner och banktransaktioner på ett smidigt sätt. Från 49 kr/månad.",
+    description: "Enkel bokföring för små team. Hantera kvitton, fakturor, löner och banktransaktioner på ett smidigt sätt. Gratis.",
     images: [imageUrl],
   },
 };

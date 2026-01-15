@@ -106,11 +106,11 @@ export default function FunktionerPage() {
               </Badge>
               <div className="mb-5">
                 <h2 className="font-medium text-lg mb-3">Kvitty Online</h2>
-                <div className="flex items-baseline gap-1">
-                  <span className="font-semibold text-4xl tracking-tight">29</span>
-                  <span className="text-muted-foreground">kr/mån</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold text-4xl tracking-tight">Gratis</span>
+                  <span className="text-muted-foreground line-through">49 kr/mån</span>
                 </div>
-                <p className="text-muted-foreground text-sm mt-1">Exkl. moms</p>
+                <p className="text-muted-foreground text-sm mt-1">Normalt 49 kr/mån. Gratis under testfasen.</p>
               </div>
 
               <ul className="space-y-2.5 mb-6 flex-1">

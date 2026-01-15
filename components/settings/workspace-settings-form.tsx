@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
@@ -133,6 +134,7 @@ export function WorkspaceSettingsForm({
       vatNumber: workspace.vatNumber ?? "",
       isVatExempt: workspace.isVatExempt ?? false,
       inboxEmailSlug: workspace.inboxEmailSlug ?? "",
+      ownerPersonalNumber: "", // Always empty initially, decrypted on server
     },
   });
 
@@ -180,6 +182,7 @@ export function WorkspaceSettingsForm({
           vatNumber: updated.vatNumber ?? "",
           isVatExempt: updated.isVatExempt ?? false,
           inboxEmailSlug: updated.inboxEmailSlug ?? "",
+          ownerPersonalNumber: "",
         });
         router.refresh();
       }
@@ -251,12 +254,7 @@ export function WorkspaceSettingsForm({
                   id="slug"
                   placeholder="abcd"
                   maxLength={4}
-                  disabled={isSubmitting}
-                  {...register("slug", {
-                    onChange: (e) => {
-                      e.target.value = e.target.value.toLowerCase();
-                    },
-                  })}
+                  disabled
                 />
                 <FieldDescription>
                   4 tecken (a-z, 0-9). Används i webbadressen
@@ -855,6 +853,11 @@ export function WorkspaceSettingsForm({
           </CardContent>
         </Card>
 
+        {/* Enskild firma specific settings */}
+        {form.watch("businessType") === "enskild_firma" && (
+          <OwnerPersonalNumberCard workspaceId={workspace.id} />
+        )}
+
         {updateMutation.error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4">
             <p className="text-sm text-red-600">
@@ -874,5 +877,99 @@ export function WorkspaceSettingsForm({
         </div>
       </div>
     </form>
+  );
+}
+
+// Separate component for owner personal number (enskild firma only)
+// Uses separate mutation to handle encryption
+function OwnerPersonalNumberCard({ workspaceId }: { workspaceId: string }) {
+  const [personalNumber, setPersonalNumber] = useState("");
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const { data: nebilagaData } = trpc.nebilaga.isAvailable.useQuery({
+    workspaceId,
+  });
+
+  const updateMutation = trpc.nebilaga.updateOwnerPersonalNumber.useMutation({
+    onSuccess: () => {
+      setHasChanges(false);
+    },
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "").slice(0, 12);
+    setPersonalNumber(value);
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate({
+      workspaceId,
+      personalNumber,
+    });
+  };
+
+  // Format personnummer for display (ÅÅÅÅMMDD-XXXX)
+  const formatPersonalNumber = (value: string) => {
+    if (value.length <= 8) return value;
+    return `${value.slice(0, 8)}-${value.slice(8)}`;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Enskild firma</CardTitle>
+        <CardDescription>
+          Uppgifter för NE-bilaga och inkomstdeklaration
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FieldGroup>
+          <Field data-invalid={updateMutation.isError}>
+            <FieldLabel htmlFor="ownerPersonalNumber">
+              Personnummer (innehavare)
+            </FieldLabel>
+            <div className="flex gap-2">
+              <Input
+                id="ownerPersonalNumber"
+                type="text"
+                inputMode="numeric"
+                placeholder="ÅÅÅÅMMDDXXXX"
+                value={formatPersonalNumber(personalNumber)}
+                onChange={handleChange}
+                disabled={updateMutation.isPending}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSave}
+                disabled={!hasChanges || updateMutation.isPending || personalNumber.length !== 12}
+              >
+                {updateMutation.isPending ? <Spinner className="h-4 w-4" /> : "Spara"}
+              </Button>
+            </div>
+            <FieldDescription>
+              12 siffror (ÅÅÅÅMMDDXXXX). Krävs för att fylla i NE-bilagan.
+              {nebilagaData?.hasOwnerPersonalNumber && (
+                <span className="block text-green-600 mt-1">
+                  Personnummer är redan sparat (krypterat)
+                </span>
+              )}
+            </FieldDescription>
+            {updateMutation.isError && (
+              <p className="text-sm text-red-600 mt-1">
+                {updateMutation.error?.message || "Kunde inte spara personnummer"}
+              </p>
+            )}
+            {updateMutation.isSuccess && !hasChanges && (
+              <p className="text-sm text-green-600 mt-1">
+                Personnummer sparat
+              </p>
+            )}
+          </Field>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   );
 }

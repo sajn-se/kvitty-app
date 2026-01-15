@@ -12,6 +12,10 @@ import { bankTransactionModel } from "@/lib/ai";
 import { parseCSV, parseOFX, detectFileFormat } from "@/lib/utils/bank-import";
 import { parseSIE4, normalizeSIE4ToTransactions, filterBankAccountTransactions, isSIEFile } from "@/lib/utils/sie-import";
 import { generateTransactionHash, checkExistingHashes, createHashInput } from "@/lib/utils/transaction-hash";
+import {
+  checkAndIncrementAIUsage,
+  AIRateLimitError,
+} from "@/lib/ai/rate-limiter";
 
 export const bankTransactionsRouter = router({
   list: workspaceProcedure
@@ -476,7 +480,21 @@ export const bankTransactionsRouter = router({
         content: z.string().min(1).max(50000),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // Check AI usage limit
+      try {
+        await checkAndIncrementAIUsage(ctx.session.user.id);
+      } catch (error) {
+        if (error instanceof AIRateLimitError) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message:
+              "Du har nått din månatliga gräns för AI-förfrågningar (50 st). Gränsen återställs den 1:a nästa månad.",
+          });
+        }
+        throw error;
+      }
+
       const result = await generateObject({
         model: bankTransactionModel,
         schema: z.object({
@@ -489,17 +507,17 @@ export const bankTransactionsRouter = router({
             })
           ),
         }),
-        prompt: `Extract bank transaction data from the following content.
+        prompt: `Extrahera banktransaktionsdata från följande innehåll.
 
-For each row/transaction found, extract:
-- accountNumber: Account number or office code (if present)
-- accountingDate: Date in YYYY-MM-DD format (if present)
-- reference: Description, memo, or reference text
-- amount: Numeric amount (negative for debits/expenses, positive for credits)
+För varje rad/transaktion som hittas, extrahera:
+- accountNumber: Kontonummer eller kontorskod (om det finns)
+- accountingDate: Datum i formatet YYYY-MM-DD (om det finns)
+- reference: Beskrivning, memo eller referenstext. OBS: Bankgiro-betalningsreferenser visas ofta i formatet "XXXX-XXXX" (4 siffror, bindestreck, 4 siffror, t.ex. "5486-6462") - behandla dessa som referenser, inte som kontonummer.
+- amount: Numeriskt belopp (negativt för debiteringar/utgifter, positivt för krediteringar)
 
-Return only the extracted data, no explanations.
+Returnera endast extraherad data, inga förklaringar.
 
-Content to analyze:
+Innehåll att analysera:
 ${input.content}`,
       });
 
