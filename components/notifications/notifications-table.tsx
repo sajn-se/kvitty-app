@@ -31,7 +31,6 @@ export function NotificationsTable() {
   const { workspace } = useWorkspace();
   const workspaceId = workspace.id;
 
-  // URL state with nuqs
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [pageSize, setPageSize] = useQueryState(
     "pageSize",
@@ -52,7 +51,6 @@ export function NotificationsTable() {
     setPage(1);
   };
 
-  // Fetch notifications
   const { data, isLoading } = trpc.notifications.list.useQuery({
     workspaceId,
     limit: pageSize,
@@ -87,14 +85,12 @@ export function NotificationsTable() {
   };
 
   const handleRowClick = async (notification: typeof notifications[0]) => {
-    // Mark as read
     if (!notification.readAt) {
       await markAsReadMutation.mutateAsync({
         notificationId: notification.id,
       });
     }
 
-    // Navigate if link exists
     if (notification.link) {
       router.push(notification.link);
     }
@@ -104,7 +100,6 @@ export function NotificationsTable() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
 
-  // Filter to show only read notifications when filter is "read"
   const filteredNotifications =
     filter === "read"
       ? notifications.filter((n) => n.readAt !== null)

@@ -56,7 +56,6 @@ export const notificationsRouter = router({
   markAsRead: protectedProcedure
     .input(markAsReadSchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership
       const notification = await ctx.db.query.notifications.findFirst({
         where: and(
           eq(notifications.id, input.notificationId),
@@ -103,7 +102,6 @@ export const notificationsRouter = router({
   delete: protectedProcedure
     .input(deleteNotificationSchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership
       const notification = await ctx.db.query.notifications.findFirst({
         where: and(
           eq(notifications.id, input.notificationId),

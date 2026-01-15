@@ -35,14 +35,12 @@ export function NotificationItem({
   });
 
   const handleClick = async () => {
-    // Mark as read if not already read
     if (!notification.readAt) {
       await markAsReadMutation.mutateAsync({
         notificationId: notification.id,
       });
     }
 
-    // Navigate if link exists
     if (notification.link) {
       router.push(notification.link);
       onClose?.();

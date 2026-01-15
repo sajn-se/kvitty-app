@@ -22,13 +22,10 @@ export function NotificationCenter() {
   const [tab, setTab] = useState<"all" | "unread">("unread");
 
   const utils = trpc.useUtils();
-
-  // Get workspace from context - will throw if not in WorkspaceProvider
   const { workspace } = useWorkspace();
   const workspaceId = workspace.id;
   const workspaceSlug = workspace.slug;
 
-  // Unread count for badge (polls every 10 seconds when page active)
   const { data: unreadCount = 0 } = trpc.notifications.getUnreadCount.useQuery(
     { workspaceId },
     {
@@ -37,7 +34,6 @@ export function NotificationCenter() {
     }
   );
 
-  // Notification list (refetch when opening popover)
   const { data, isLoading } = trpc.notifications.list.useQuery(
     {
       workspaceId,
