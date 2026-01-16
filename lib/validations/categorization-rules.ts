@@ -55,7 +55,7 @@ export const createCategorizationRuleSchema = z.object({
   actionValue: z.string().min(1, "Åtgärdsvärde krävs").max(200, "Åtgärdsvärde får vara max 200 tecken"),
 });
 
-export type CreateCategorizationRuleInput = z.infer<typeof createCategorizationRuleSchema>;
+export type CreateCategorizationRuleInput = z.output<typeof createCategorizationRuleSchema>;
 
 // Validation schema for updating a rule
 export const updateCategorizationRuleSchema = z.object({
