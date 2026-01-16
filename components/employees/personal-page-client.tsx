@@ -2,14 +2,9 @@
 
 import { useState } from "react";
 import { useQueryState, parseAsInteger } from "nuqs";
-import { Plus, UserCircle } from "@phosphor-icons/react";
+import { Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
-import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import { AddEmployeeDialog } from "@/components/employees/add-employee-dialog";
@@ -47,14 +42,6 @@ export function PersonalPageClient({ workspaceSlug }: PersonalPageClientProps) {
   const activeEmployeeCount = employees?.filter((e) => e.isActive).length ?? 0;
   const isAtLimit = activeEmployeeCount >= 25;
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Spinner className="size-8" />
-      </div>
-    );
-  }
-
   return (
     <>
       <PageHeader
@@ -71,38 +58,23 @@ export function PersonalPageClient({ workspaceSlug }: PersonalPageClientProps) {
               Hantera anställda för lönekörningar
             </p>
           </div>
-          <Button onClick={() => !isAtLimit && setAddOpen(true)} disabled={isAtLimit}>
+          <Button onClick={() => !isAtLimit && setAddOpen(true)} disabled={isAtLimit || isLoading}>
             <Plus className="size-4 mr-2" />
             Lägg till anställd
           </Button>
         </div>
 
-        {employees?.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <UserCircle className="size-12 mx-auto mb-4 text-muted-foreground" weight="duotone" />
-              <h3 className="font-medium mb-2">Inga anställda</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Lägg till anställda för att kunna köra löner.
-              </p>
-              <Button onClick={() => !isAtLimit && setAddOpen(true)} disabled={isAtLimit}>
-                <Plus className="size-4 mr-2" />
-                Lägg till anställd
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <EmployeesTable
-            employees={employees || []}
-            workspaceSlug={workspaceSlug}
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={handlePageSizeChange}
-          />
-        )}
+        <EmployeesTable
+          employees={employees ?? []}
+          workspaceSlug={workspaceSlug}
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          isLoading={isLoading}
+        />
 
         <AddEmployeeDialog
           workspaceId={workspace.id}

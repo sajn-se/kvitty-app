@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, EnvelopeSimple, ChatText } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -39,6 +40,7 @@ interface EmployeesTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  isLoading?: boolean;
 }
 
 export function EmployeesTable({
@@ -50,6 +52,7 @@ export function EmployeesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isLoading,
 }: EmployeesTableProps) {
   return (
     <>
@@ -66,87 +69,106 @@ export function EmployeesTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {employees.map((employee) => (
-          <TableRow key={employee.id}>
-            <TableCell className="px-4 font-medium">
-              <Link
-                href={`/${workspaceSlug}/personal/${employee.id}`}
-                className="hover:underline"
-              >
-                {employee.firstName} {employee.lastName}
-              </Link>
-            </TableCell>
-            <TableCell className="px-4 font-mono text-sm">
-              {employee.personalNumber}
-              {(() => {
-                const age = calculateAgeFromPersonnummer(employee.personalNumber);
-                return age !== null ? ` (${age} år)` : null;
-              })()}
-            </TableCell>
-            <TableCell className="px-4">
-              {employee.email ? (
-                <div className="flex items-center gap-2">
-                  {employee.email}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a
-                        href={`mailto:${employee.email}`}
-                        className="hover:opacity-70"
-                      >
-                        <EnvelopeSimple className="size-4" />
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Öppna e-post
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              ) : (
-                "-"
-              )}
-            </TableCell>
-            <TableCell className="px-4">
-              {employee.phone ? (
-                <div className="flex items-center gap-2">
-                  {employee.phone}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a
-                        href={`sms:${employee.phone}`}
-                        className="hover:opacity-70"
-                      >
-                        <ChatText className="size-4" />
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Skicka SMS
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              ) : (
-                "-"
-              )}
-            </TableCell>
-            <TableCell className="px-4">
-              {employee.isActive ? (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  Aktiv
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="bg-gray-50 text-gray-700">
-                  Arkiverad
-                </Badge>
-              )}
-            </TableCell>
-            <TableCell className="px-4">
-              <Link href={`/${workspaceSlug}/personal/${employee.id}`}>
-                <Button variant="ghost" size="icon">
-                  <ArrowRight className="size-4" />
-                </Button>
-              </Link>
+        {isLoading ? (
+          Array.from({ length: 10 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell className="px-4"><Skeleton className="h-4 w-32" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-28" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-44" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-24" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-7 w-7 rounded-md" /></TableCell>
+            </TableRow>
+          ))
+        ) : employees.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+              Inga anställda hittades.
             </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          employees.map((employee) => (
+            <TableRow key={employee.id}>
+              <TableCell className="px-4 font-medium">
+                <Link
+                  href={`/${workspaceSlug}/personal/${employee.id}`}
+                  className="hover:underline"
+                >
+                  {employee.firstName} {employee.lastName}
+                </Link>
+              </TableCell>
+              <TableCell className="px-4 font-mono text-sm">
+                {employee.personalNumber}
+                {(() => {
+                  const age = calculateAgeFromPersonnummer(employee.personalNumber);
+                  return age !== null ? ` (${age} år)` : null;
+                })()}
+              </TableCell>
+              <TableCell className="px-4">
+                {employee.email ? (
+                  <div className="flex items-center gap-2">
+                    {employee.email}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a
+                          href={`mailto:${employee.email}`}
+                          className="hover:opacity-70"
+                        >
+                          <EnvelopeSimple className="size-4" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Öppna e-post
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell className="px-4">
+                {employee.phone ? (
+                  <div className="flex items-center gap-2">
+                    {employee.phone}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a
+                          href={`sms:${employee.phone}`}
+                          className="hover:opacity-70"
+                        >
+                          <ChatText className="size-4" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Skicka SMS
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell className="px-4">
+                {employee.isActive ? (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Aktiv
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-gray-50 text-gray-700">
+                    Arkiverad
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell className="px-4">
+                <Link href={`/${workspaceSlug}/personal/${employee.id}`}>
+                  <Button variant="ghost" size="icon">
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
     </div>

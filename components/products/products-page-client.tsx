@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useQueryState, parseAsInteger } from "nuqs";
-import { Plus, Package } from "@phosphor-icons/react";
+import { Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import type { Product } from "@/lib/db/schema";
@@ -56,40 +55,20 @@ export function ProductsPageClient() {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner className="size-8" />
-        </div>
-      ) : products?.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Package className="size-12 mx-auto mb-4 opacity-50" weight="duotone" />
-          <p>Inga produkter ännu</p>
-          <p className="text-sm mt-1">
-            Skapa produkter för att snabbt kunna lägga till dem på fakturor
-          </p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => setCreateOpen(true)}
-          >
-            Lägg till din första produkt
-          </Button>
-        </div>
-      ) : (
-        <ProductsTable
-          products={products || []}
-          onEdit={setEditingProduct}
-          onDelete={(product) => {
-            deleteProduct.mutate({ workspaceId: workspace.id, id: product.id });
-          }}
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-        />
-      )}
+      <ProductsTable
+        products={products ?? []}
+        onEdit={setEditingProduct}
+        onDelete={(product) => {
+          deleteProduct.mutate({ workspaceId: workspace.id, id: product.id });
+        }}
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={handlePageSizeChange}
+        isLoading={isLoading}
+      />
 
       <ProductFormDialog
         open={createOpen}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -32,6 +33,7 @@ interface PayrollRunsTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  isLoading?: boolean;
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -51,6 +53,7 @@ export function PayrollRunsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isLoading,
 }: PayrollRunsTableProps) {
   const formatCurrency = (value: string | null) => {
     if (!value) return "0 kr";
@@ -72,36 +75,56 @@ export function PayrollRunsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {runs.map((run) => {
-            const status = statusLabels[run.status] || statusLabels.draft;
-            return (
-              <TableRow key={run.id}>
-                <TableCell className="px-4 font-medium">
-                  {run.period.substring(0, 4)}-{run.period.substring(4)}
-                </TableCell>
-                <TableCell className="px-4">Körning {run.runNumber}</TableCell>
-                <TableCell className="px-4">{run.paymentDate}</TableCell>
-                <TableCell className="px-4 text-right font-mono">
-                  {formatCurrency(run.totalGrossSalary)}
-                </TableCell>
-                <TableCell className="px-4 text-right font-mono">
-                  {formatCurrency(run.totalEmployerContributions)}
-                </TableCell>
-                <TableCell className="px-4">
-                  <Badge variant="outline" className={status.color}>
-                    {status.label}
-                  </Badge>
-                </TableCell>
-                <TableCell className="px-4">
-                  <Link href={`/${workspaceSlug}/personal/lon/${run.id}`}>
-                    <Button variant="ghost" size="sm">
-                      Öppna
-                    </Button>
-                  </Link>
-                </TableCell>
+          {isLoading ? (
+            Array.from({ length: 10 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+                <TableCell className="px-4"><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell className="px-4"><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell className="px-4 text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                <TableCell className="px-4 text-right"><Skeleton className="h-4 w-28 ml-auto" /></TableCell>
+                <TableCell className="px-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                <TableCell className="px-4"><Skeleton className="h-7 w-16" /></TableCell>
               </TableRow>
-            );
-          })}
+            ))
+          ) : runs.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                Inga lönekörningar hittades.
+              </TableCell>
+            </TableRow>
+          ) : (
+            runs.map((run) => {
+              const status = statusLabels[run.status] || statusLabels.draft;
+              return (
+                <TableRow key={run.id}>
+                  <TableCell className="px-4 font-medium">
+                    {run.period.substring(0, 4)}-{run.period.substring(4)}
+                  </TableCell>
+                  <TableCell className="px-4">Körning {run.runNumber}</TableCell>
+                  <TableCell className="px-4">{run.paymentDate}</TableCell>
+                  <TableCell className="px-4 text-right font-mono">
+                    {formatCurrency(run.totalGrossSalary)}
+                  </TableCell>
+                  <TableCell className="px-4 text-right font-mono">
+                    {formatCurrency(run.totalEmployerContributions)}
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <Badge variant="outline" className={status.color}>
+                      {status.label}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <Link href={`/${workspaceSlug}/personal/lon/${run.id}`}>
+                      <Button variant="ghost" size="sm">
+                        Öppna
+                      </Button>
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
         </TableBody>
       </Table>
       <TablePagination

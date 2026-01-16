@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FilePdf, PaperPlaneTilt, Check, DotsThree, Trash, Eye, BookOpen, CheckCircle, Bell, CopySimple } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -60,6 +61,7 @@ interface InvoicesTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  isLoading?: boolean;
 }
 
 // Display status types (includes calculated statuses)
@@ -178,6 +180,7 @@ export function InvoicesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isLoading,
 }: InvoicesTableProps) {
   const formatCurrency = (value: string) => {
     return parseFloat(value).toLocaleString("sv-SE", {
@@ -213,114 +216,135 @@ export function InvoicesTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {invoices.map((invoice) => {
-          const displayStatus = getDisplayStatus(invoice);
-
-          return (
-            <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
-              <TableCell className="px-4">
-                <Link
-                  href={`/${workspaceSlug}/fakturor/${invoice.id}`}
-                  className="font-mono hover:underline"
-                >
-                  {invoice.invoiceNumber}
-                </Link>
-              </TableCell>
-              <TableCell className="px-4">
-                <Link
-                  href={`/${workspaceSlug}/fakturor/${invoice.id}`}
-                  className="hover:underline"
-                >
-                  {invoice.customer.name}
-                </Link>
-              </TableCell>
-              <TableCell className="px-4 text-right font-mono">
-                {formatCurrency(invoice.total)}
-              </TableCell>
-              <TableCell className="px-4">
-                <Badge variant={statusColors[displayStatus]}>
-                  {statusLabels[displayStatus]}
-                </Badge>
-              </TableCell>
-              <TableCell className="px-4">
-                <VerificationStatusCell invoice={invoice} />
-              </TableCell>
-              <TableCell className="px-4">{formatDate(invoice.invoiceDate)}</TableCell>
-              <TableCell className="px-4">{formatDate(invoice.dueDate)}</TableCell>
-              <TableCell className="px-4">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <DotsThree className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/${workspaceSlug}/fakturor/${invoice.id}`} className="whitespace-nowrap">
-                        <Eye className="size-4 mr-2" />
-                        Visa faktura
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onDownloadPdf(invoice.id)} className="whitespace-nowrap">
-                      <FilePdf className="size-4 mr-2" />
-                      Ladda ner PDF
-                    </DropdownMenuItem>
-                    {onDuplicate && (
-                      <DropdownMenuItem onClick={() => onDuplicate(invoice.id)} className="whitespace-nowrap">
-                        <CopySimple className="size-4 mr-2" />
-                        Duplicera faktura
-                      </DropdownMenuItem>
-                    )}
-                    {invoice.status === "draft" && (
-                      <DropdownMenuItem onClick={() => onMarkAsSent(invoice.id)} className="whitespace-nowrap">
-                        <PaperPlaneTilt className="size-4 mr-2" />
-                        Markera som skickad
-                      </DropdownMenuItem>
-                    )}
-                    {invoice.status === "sent" && (
-                      <DropdownMenuItem onClick={() => onMarkAsPaid(invoice.id)} className="whitespace-nowrap">
-                        <Check className="size-4 mr-2" />
-                        Markera som betald
-                      </DropdownMenuItem>
-                    )}
-                    {/* Send reminder for overdue invoices */}
-                    {displayStatus === "overdue" && onSendReminder && (
-                      <DropdownMenuItem onClick={() => onSendReminder(invoice)} className="whitespace-nowrap">
-                        <Bell className="size-4 mr-2" />
-                        Skicka påminnelse
-                      </DropdownMenuItem>
-                    )}
-                    {/* Bokför nu actions for missing verifications */}
-                    {needsSentVerification(invoice) && onCreateSentVerification && (
-                      <DropdownMenuItem onClick={() => onCreateSentVerification(invoice.id)} className="whitespace-nowrap">
-                        <BookOpen className="size-4 mr-2" />
-                        Bokför intäkt
-                      </DropdownMenuItem>
-                    )}
-                    {needsPaidVerification(invoice) && onCreatePaidVerification && (
-                      <DropdownMenuItem onClick={() => onCreatePaidVerification(invoice.id)} className="whitespace-nowrap">
-                        <BookOpen className="size-4 mr-2" />
-                        Bokför betalning
-                      </DropdownMenuItem>
-                    )}
-                    {invoice.status === "draft" && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-600 whitespace-nowrap"
-                          onClick={() => onDelete(invoice.id)}
-                        >
-                          <Trash className="size-4 mr-2" />
-                          Ta bort
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
+        {isLoading ? (
+          Array.from({ length: 10 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell className="px-4"><Skeleton className="h-4 w-12" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-32" /></TableCell>
+              <TableCell className="px-4 text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-16" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="size-7 rounded-md" /></TableCell>
             </TableRow>
-          );
-        })}
+          ))
+        ) : invoices.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+              Inga fakturor hittades.
+            </TableCell>
+          </TableRow>
+        ) : (
+          invoices.map((invoice) => {
+            const displayStatus = getDisplayStatus(invoice);
+
+            return (
+              <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
+                <TableCell className="px-4">
+                  <Link
+                    href={`/${workspaceSlug}/fakturor/${invoice.id}`}
+                    className="font-mono hover:underline"
+                  >
+                    {invoice.invoiceNumber}
+                  </Link>
+                </TableCell>
+                <TableCell className="px-4">
+                  <Link
+                    href={`/${workspaceSlug}/fakturor/${invoice.id}`}
+                    className="hover:underline"
+                  >
+                    {invoice.customer.name}
+                  </Link>
+                </TableCell>
+                <TableCell className="px-4 text-right font-mono">
+                  {formatCurrency(invoice.total)}
+                </TableCell>
+                <TableCell className="px-4">
+                  <Badge variant={statusColors[displayStatus]}>
+                    {statusLabels[displayStatus]}
+                  </Badge>
+                </TableCell>
+                <TableCell className="px-4">
+                  <VerificationStatusCell invoice={invoice} />
+                </TableCell>
+                <TableCell className="px-4">{formatDate(invoice.invoiceDate)}</TableCell>
+                <TableCell className="px-4">{formatDate(invoice.dueDate)}</TableCell>
+                <TableCell className="px-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <DotsThree className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-48">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/${workspaceSlug}/fakturor/${invoice.id}`} className="whitespace-nowrap">
+                          <Eye className="size-4 mr-2" />
+                          Visa faktura
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDownloadPdf(invoice.id)} className="whitespace-nowrap">
+                        <FilePdf className="size-4 mr-2" />
+                        Ladda ner PDF
+                      </DropdownMenuItem>
+                      {onDuplicate && (
+                        <DropdownMenuItem onClick={() => onDuplicate(invoice.id)} className="whitespace-nowrap">
+                          <CopySimple className="size-4 mr-2" />
+                          Duplicera faktura
+                        </DropdownMenuItem>
+                      )}
+                      {invoice.status === "draft" && (
+                        <DropdownMenuItem onClick={() => onMarkAsSent(invoice.id)} className="whitespace-nowrap">
+                          <PaperPlaneTilt className="size-4 mr-2" />
+                          Markera som skickad
+                        </DropdownMenuItem>
+                      )}
+                      {invoice.status === "sent" && (
+                        <DropdownMenuItem onClick={() => onMarkAsPaid(invoice.id)} className="whitespace-nowrap">
+                          <Check className="size-4 mr-2" />
+                          Markera som betald
+                        </DropdownMenuItem>
+                      )}
+                      {/* Send reminder for overdue invoices */}
+                      {displayStatus === "overdue" && onSendReminder && (
+                        <DropdownMenuItem onClick={() => onSendReminder(invoice)} className="whitespace-nowrap">
+                          <Bell className="size-4 mr-2" />
+                          Skicka påminnelse
+                        </DropdownMenuItem>
+                      )}
+                      {/* Bokför nu actions for missing verifications */}
+                      {needsSentVerification(invoice) && onCreateSentVerification && (
+                        <DropdownMenuItem onClick={() => onCreateSentVerification(invoice.id)} className="whitespace-nowrap">
+                          <BookOpen className="size-4 mr-2" />
+                          Bokför intäkt
+                        </DropdownMenuItem>
+                      )}
+                      {needsPaidVerification(invoice) && onCreatePaidVerification && (
+                        <DropdownMenuItem onClick={() => onCreatePaidVerification(invoice.id)} className="whitespace-nowrap">
+                          <BookOpen className="size-4 mr-2" />
+                          Bokför betalning
+                        </DropdownMenuItem>
+                      )}
+                      {invoice.status === "draft" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600 whitespace-nowrap"
+                            onClick={() => onDelete(invoice.id)}
+                          >
+                            <Trash className="size-4 mr-2" />
+                            Ta bort
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })
+        )}
       </TableBody>
     </Table>
     </div>

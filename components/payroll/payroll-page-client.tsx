@@ -2,14 +2,10 @@
 
 import { useState } from "react";
 import { useQueryState, parseAsInteger } from "nuqs";
-import { Plus, Money } from "@phosphor-icons/react";
+import { Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
-import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import { CreatePayrollRunDialog } from "@/components/payroll/create-payroll-run-dialog";
@@ -42,14 +38,6 @@ export function PayrollPageClient({ workspaceSlug }: PayrollPageClientProps) {
     setPage(1);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Spinner className="size-8" />
-      </div>
-    );
-  }
-
   return (
     <>
       <PageHeader
@@ -73,24 +61,9 @@ export function PayrollPageClient({ workspaceSlug }: PayrollPageClientProps) {
           </Button>
         </div>
 
-      {runs?.length === 0 && page === 1 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Money className="size-12 mx-auto mb-4 text-muted-foreground" weight="duotone" />
-            <h3 className="font-medium mb-2">Inga lönekörningar</h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              Skapa en lönekörning för att börja betala ut löner.
-            </p>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4 mr-2" />
-              Ny lönekörning
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
         <Card>
           <PayrollRunsTable
-            runs={runs || []}
+            runs={runs ?? []}
             workspaceSlug={workspaceSlug}
             page={page}
             totalPages={totalPages}
@@ -98,9 +71,9 @@ export function PayrollPageClient({ workspaceSlug }: PayrollPageClientProps) {
             pageSize={pageSize}
             onPageChange={setPage}
             onPageSizeChange={handlePageSizeChange}
+            isLoading={isLoading}
           />
         </Card>
-      )}
 
       <CreatePayrollRunDialog
         workspaceId={workspace.id}

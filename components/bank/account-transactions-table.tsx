@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface JournalEntry {
   id: string;
@@ -55,11 +55,14 @@ export function AccountTransactionsTable({
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={4} className="px-4 h-24 text-center">
-                <Spinner className="size-6 mx-auto" />
-              </TableCell>
-            </TableRow>
+            Array.from({ length: 10 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+                <TableCell className="px-4"><Skeleton className="h-4 w-12" /></TableCell>
+                <TableCell className="px-4"><Skeleton className="h-4 w-48" /></TableCell>
+                <TableCell className="px-4 text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+              </TableRow>
+            ))
           ) : entries.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} className="px-4 h-24 text-center text-muted-foreground">

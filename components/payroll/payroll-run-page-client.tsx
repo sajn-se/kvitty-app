@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -158,15 +159,7 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
     return `${num.toLocaleString("sv-SE")} kr`;
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Spinner className="size-8" />
-      </div>
-    );
-  }
-
-  if (!run) {
+  if (!run && !isLoading) {
     return (
       <div className="container py-6">
         <p>Lönekörning hittades inte.</p>
@@ -174,15 +167,15 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
     );
   }
 
-  const status = statusLabels[run.status] || statusLabels.draft;
-  const isDraft = run.status === "draft";
-  const canApprove = run.status === "calculated" && run.entries.length > 0;
-  const canGenerateAGI = run.status === "approved";
-  const canMarkAsPaid = run.status === "approved" && !!run.agiXml;
-  const canSendSalaryStatements = (run.status === "approved" || run.status === "paid" || run.status === "reported") && run.entries.length > 0;
+  const status = run ? (statusLabels[run.status] || statusLabels.draft) : statusLabels.draft;
+  const isDraft = run?.status === "draft";
+  const canApprove = run?.status === "calculated" && (run?.entries.length ?? 0) > 0;
+  const canGenerateAGI = run?.status === "approved";
+  const canMarkAsPaid = run?.status === "approved" && !!run?.agiXml;
+  const canSendSalaryStatements = (run?.status === "approved" || run?.status === "paid" || run?.status === "reported") && (run?.entries.length ?? 0) > 0;
 
   const availableEmployees = employees?.filter(
-    (emp) => !run.entries.some((entry) => entry.employeeId === emp.id)
+    (emp) => !run?.entries.some((entry) => entry.employeeId === emp.id)
   );
 
   return (
@@ -194,128 +187,142 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
           { label: "Personal", href: `/${workspaceSlug}/personal` },
           { label: "Lönekörningar", href: `/${workspaceSlug}/personal/lon` },
         ]}
-        currentPage={`${run.period.substring(0, 4)}-${run.period.substring(4)} • Körning ${run.runNumber}`}
+        currentPage={isLoading ? "Laddar..." : `${run!.period.substring(0, 4)}-${run!.period.substring(4)} • Körning ${run!.runNumber}`}
       />
 
       <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Lönekörning {run.period.substring(0, 4)}-{run.period.substring(4)}
-              </h1>
-              <Badge variant="outline" className={status.color}>
-                {status.label}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              Körning {run.runNumber} • Utbetalning {run.paymentDate}
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            {isDraft && (
+            {isLoading ? (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => calculateRun.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
-                  disabled={calculateRun.isPending || run.entries.length === 0}
-                >
-                  {calculateRun.isPending ? <Spinner /> : <Calculator className="size-4 mr-2" />}
-                  Beräkna
-                </Button>
-                <Button onClick={() => setAddEmployeeOpen(true)}>
-                  <Plus className="size-4 mr-2" />
-                  Lägg till anställd
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-40 mt-2" />
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Lönekörning {run!.period.substring(0, 4)}-{run!.period.substring(4)}
+                  </h1>
+                  <Badge variant="outline" className={status.color}>
+                    {status.label}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground text-sm">
+                  Körning {run!.runNumber} • Utbetalning {run!.paymentDate}
+                </p>
               </>
             )}
-            {canApprove && (
-              <Button
-                onClick={() => approveRun.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
-                disabled={approveRun.isPending}
-              >
-                {approveRun.isPending ? <Spinner /> : <Check className="size-4 mr-2" />}
-                Godkänn
-              </Button>
-            )}
-            {canGenerateAGI && (
-              <Button
-                onClick={() => generateAGI.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
-                disabled={generateAGI.isPending}
-              >
-                {generateAGI.isPending ? <Spinner /> : <FileCode className="size-4 mr-2" />}
-                Generera arbetsgivardeklaration
-              </Button>
-            )}
-            {run.agiXml && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const blob = new Blob([run.agiXml!], { type: "application/xml" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `AGI_${run.period}_${run.runNumber}.xml`;
-                  a.click();
-                }}
-              >
-                <Download className="size-4 mr-2" />
-                Ladda ner arbetsgivardeklaration
-              </Button>
-            )}
-            {canMarkAsPaid && (
-              <Button
-                onClick={() => markAsPaid.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
-                disabled={markAsPaid.isPending}
-              >
-                {markAsPaid.isPending ? <Spinner /> : <Money className="size-4 mr-2" />}
-                Markera som betald
-              </Button>
-            )}
-            {canSendSalaryStatements && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={generateAllSalaryStatements.isPending}>
-                    {generateAllSalaryStatements.isPending ? (
-                      <Spinner />
-                    ) : (
-                      <FileText className="size-4 mr-2" />
-                    )}
-                    Lönebesked
-                    <CaretDown className="size-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      generateAllSalaryStatements.mutate({
-                        payrollRunId: run.id,
-                        workspaceId: workspace.id,
-                        sendEmail: false,
-                      })
-                    }
-                  >
-                    <FileText className="size-4 mr-2" />
-                    Generera lönebesked
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() =>
-                      generateAllSalaryStatements.mutate({
-                        payrollRunId: run.id,
-                        workspaceId: workspace.id,
-                        sendEmail: true,
-                      })
-                    }
-                  >
-                    <EnvelopeSimple className="size-4 mr-2" />
-                    Skicka lönebesked via e-post
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
+
+          {!isLoading && run && (
+            <div className="flex gap-2">
+              {isDraft && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => calculateRun.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
+                    disabled={calculateRun.isPending || run.entries.length === 0}
+                  >
+                    {calculateRun.isPending ? <Spinner /> : <Calculator className="size-4 mr-2" />}
+                    Beräkna
+                  </Button>
+                  <Button onClick={() => setAddEmployeeOpen(true)}>
+                    <Plus className="size-4 mr-2" />
+                    Lägg till anställd
+                  </Button>
+                </>
+              )}
+              {canApprove && (
+                <Button
+                  onClick={() => approveRun.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
+                  disabled={approveRun.isPending}
+                >
+                  {approveRun.isPending ? <Spinner /> : <Check className="size-4 mr-2" />}
+                  Godkänn
+                </Button>
+              )}
+              {canGenerateAGI && (
+                <Button
+                  onClick={() => generateAGI.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
+                  disabled={generateAGI.isPending}
+                >
+                  {generateAGI.isPending ? <Spinner /> : <FileCode className="size-4 mr-2" />}
+                  Generera arbetsgivardeklaration
+                </Button>
+              )}
+              {run.agiXml && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([run.agiXml!], { type: "application/xml" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `AGI_${run.period}_${run.runNumber}.xml`;
+                    a.click();
+                  }}
+                >
+                  <Download className="size-4 mr-2" />
+                  Ladda ner arbetsgivardeklaration
+                </Button>
+              )}
+              {canMarkAsPaid && (
+                <Button
+                  onClick={() => markAsPaid.mutate({ payrollRunId: run.id, workspaceId: workspace.id })}
+                  disabled={markAsPaid.isPending}
+                >
+                  {markAsPaid.isPending ? <Spinner /> : <Money className="size-4 mr-2" />}
+                  Markera som betald
+                </Button>
+              )}
+              {canSendSalaryStatements && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" disabled={generateAllSalaryStatements.isPending}>
+                      {generateAllSalaryStatements.isPending ? (
+                        <Spinner />
+                      ) : (
+                        <FileText className="size-4 mr-2" />
+                      )}
+                      Lönebesked
+                      <CaretDown className="size-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        generateAllSalaryStatements.mutate({
+                          payrollRunId: run.id,
+                          workspaceId: workspace.id,
+                          sendEmail: false,
+                        })
+                      }
+                    >
+                      <FileText className="size-4 mr-2" />
+                      Generera lönebesked
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() =>
+                        generateAllSalaryStatements.mutate({
+                          payrollRunId: run.id,
+                          workspaceId: workspace.id,
+                          sendEmail: true,
+                        })
+                      }
+                    >
+                      <EnvelopeSimple className="size-4 mr-2" />
+                      Skicka lönebesked via e-post
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-4 gap-4 mb-6">
@@ -324,7 +331,11 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
               <CardDescription>Bruttolön</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(run.totalGrossSalary)}</p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-28" />
+              ) : (
+                <p className="text-2xl font-bold">{formatCurrency(run!.totalGrossSalary)}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -332,7 +343,11 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
               <CardDescription>Skatteavdrag</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(run.totalTaxDeduction)}</p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{formatCurrency(run!.totalTaxDeduction)}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -340,7 +355,11 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
               <CardDescription>Arbetsgivaravgift</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(run.totalEmployerContributions)}</p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-28" />
+              ) : (
+                <p className="text-2xl font-bold">{formatCurrency(run!.totalEmployerContributions)}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -348,12 +367,16 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
               <CardDescription>Nettolön</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(run.totalNetSalary)}</p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-28" />
+              ) : (
+                <p className="text-2xl font-bold">{formatCurrency(run!.totalNetSalary)}</p>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {run.agiDeadline && (
+        {run?.agiDeadline && (
           <AGIDeadlineCard
             payrollRunId={run.id}
             workspaceId={workspace.id}
@@ -368,46 +391,31 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
             <CardTitle>Personal</CardTitle>
           </CardHeader>
           <CardContent>
-            {run.entries.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>Inga anställda tillagda.</p>
-                {isDraft && (
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setAddEmployeeOpen(true)}
-                  >
-                    <Plus className="size-4 mr-2" />
-                    Lägg till anställd
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <PayrollRunEntriesTable
-                entries={run.entries.map((entry) => ({
-                  id: entry.id,
-                  employee: {
-                    firstName: entry.employee.firstName,
-                    lastName: entry.employee.lastName,
-                  },
-                  grossSalary: entry.grossSalary,
-                  taxDeduction: entry.taxDeduction,
-                  employerContributions: entry.employerContributions,
-                  netSalary: entry.netSalary,
-                }))}
-                isDraft={isDraft}
-                onRemove={(entryId) => removeEntry.mutate({ id: entryId, workspaceId: workspace.id })}
-                isRemoving={removeEntry.isPending}
-                showSalaryStatementActions={canSendSalaryStatements}
-                onGenerateSalaryStatement={handleGenerateSalaryStatement}
-                isGeneratingSalaryStatement={generateSalaryStatement.isPending}
-                generatingSalaryStatementId={generatingSalaryStatementId}
-              />
-            )}
+            <PayrollRunEntriesTable
+              entries={run?.entries.map((entry) => ({
+                id: entry.id,
+                employee: {
+                  firstName: entry.employee.firstName,
+                  lastName: entry.employee.lastName,
+                },
+                grossSalary: entry.grossSalary,
+                taxDeduction: entry.taxDeduction,
+                employerContributions: entry.employerContributions,
+                netSalary: entry.netSalary,
+              })) ?? []}
+              isDraft={isDraft ?? false}
+              onRemove={(entryId) => removeEntry.mutate({ id: entryId, workspaceId: workspace.id })}
+              isRemoving={removeEntry.isPending}
+              showSalaryStatementActions={canSendSalaryStatements}
+              onGenerateSalaryStatement={handleGenerateSalaryStatement}
+              isGeneratingSalaryStatement={generateSalaryStatement.isPending}
+              generatingSalaryStatementId={generatingSalaryStatementId}
+              isLoading={isLoading}
+            />
           </CardContent>
         </Card>
 
-        {canSendSalaryStatements && (
+        {canSendSalaryStatements && run && (
           <SalaryStatementsList
             payrollRunId={run.id}
             workspaceId={workspace.id}
@@ -417,22 +425,26 @@ export function PayrollRunPageClient({ runId, workspaceSlug }: PayrollRunPageCli
           />
         )}
 
-        <AddPayrollEntryDialog
-          payrollRunId={run.id}
-          workspaceId={workspace.id}
-          open={addEmployeeOpen}
-          onOpenChange={setAddEmployeeOpen}
-          availableEmployees={availableEmployees || []}
-          onSuccess={() => utils.payroll.getRun.invalidate()}
-        />
+        {run && (
+          <AddPayrollEntryDialog
+            payrollRunId={run.id}
+            workspaceId={workspace.id}
+            open={addEmployeeOpen}
+            onOpenChange={setAddEmployeeOpen}
+            availableEmployees={availableEmployees || []}
+            onSuccess={() => utils.payroll.getRun.invalidate()}
+          />
+        )}
 
-        <AgiPreviewDialog
-          open={agiPreviewOpen}
-          onOpenChange={setAgiPreviewOpen}
-          agiXml={run.agiXml}
-          period={run.period}
-          runNumber={run.runNumber}
-        />
+        {run && (
+          <AgiPreviewDialog
+            open={agiPreviewOpen}
+            onOpenChange={setAgiPreviewOpen}
+            agiXml={run.agiXml}
+            period={run.period}
+            runNumber={run.runNumber}
+          />
+        )}
       </div>
     </>
   );

@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { createColumns, type InboxEmail } from "./inbox-columns";
 import { InboxDetailSheet } from "./inbox-detail-sheet";
@@ -32,6 +33,7 @@ interface InboxTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  isLoading?: boolean;
 }
 
 export function InboxTable({
@@ -45,6 +47,7 @@ export function InboxTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isLoading,
 }: InboxTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedEmail, setSelectedEmail] = useState<InboxEmail | null>(null);
@@ -83,7 +86,17 @@ export function InboxTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              Array.from({ length: 10 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell className="px-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-40" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-8" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

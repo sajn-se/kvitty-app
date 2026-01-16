@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { createColumns, type BankTransaction } from "./bank-transaction-columns";
 import { BankTransactionDetailSheet } from "./bank-transaction-detail-sheet";
@@ -33,6 +34,7 @@ interface BankTransactionsTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  isLoading?: boolean;
 }
 
 export function BankTransactionsTable({
@@ -48,6 +50,7 @@ export function BankTransactionsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isLoading,
 }: BankTransactionsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedTransaction, setSelectedTransaction] =
@@ -101,7 +104,18 @@ export function BankTransactionsTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              Array.from({ length: 10 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-4 w-28" /></TableCell>
+                  <TableCell className="px-4"><Skeleton className="h-7 w-24" /></TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

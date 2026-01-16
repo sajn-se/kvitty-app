@@ -2,6 +2,7 @@
 
 import { Pencil, Trash, DotsThree, Archive } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -32,6 +33,7 @@ interface ProductsTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  isLoading?: boolean;
 }
 
 function formatCurrency(value: string | number) {
@@ -49,6 +51,7 @@ export function ProductsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isLoading,
 }: ProductsTableProps) {
   return (
     <>
@@ -65,67 +68,86 @@ export function ProductsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {products.map((product) => (
-          <TableRow key={product.id} className={!product.isActive ? "opacity-50" : ""}>
-            <TableCell className="px-4 font-medium">
-              <div className="flex items-center gap-2">
-                {product.name}
-                {!product.isActive && (
-                  <Badge variant="secondary" className="text-xs">
-                    <Archive className="size-3 mr-1" />
-                    Arkiverad
-                  </Badge>
-                )}
-              </div>
-              {product.description && (
-                <p className="text-sm text-muted-foreground truncate max-w-xs">
-                  {product.description}
-                </p>
-              )}
-            </TableCell>
-            <TableCell className="px-4">{unitLabels[product.unit]}</TableCell>
-            <TableCell className="px-4 text-right font-mono">
-              {formatCurrency(product.unitPrice)}
-            </TableCell>
-            <TableCell className="px-4">{product.vatRate} %</TableCell>
-            <TableCell className="px-4">
-              <Badge variant={product.type === "V" ? "default" : "secondary"}>
-                {productTypeLabels[product.type]}
-              </Badge>
-            </TableCell>
-            <TableCell className="px-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <DotsThree className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(product)}>
-                    <Pencil className="size-4 mr-2" />
-                    Redigera
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-600"
-                    onClick={() => {
-                      if (
-                        confirm(
-                          "Är du säker på att du vill ta bort denna produkt? Om produkten används på fakturor kommer den arkiveras istället."
-                        )
-                      ) {
-                        onDelete(product);
-                      }
-                    }}
-                  >
-                    <Trash className="size-4 mr-2" />
-                    Ta bort
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+        {isLoading ? (
+          Array.from({ length: 10 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell className="px-4"><Skeleton className="h-4 w-40" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-16" /></TableCell>
+              <TableCell className="px-4 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-4 w-10" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+              <TableCell className="px-4"><Skeleton className="size-7 rounded-md" /></TableCell>
+            </TableRow>
+          ))
+        ) : products.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+              Inga produkter hittades.
             </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          products.map((product) => (
+            <TableRow key={product.id} className={!product.isActive ? "opacity-50" : ""}>
+              <TableCell className="px-4 font-medium">
+                <div className="flex items-center gap-2">
+                  {product.name}
+                  {!product.isActive && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Archive className="size-3 mr-1" />
+                      Arkiverad
+                    </Badge>
+                  )}
+                </div>
+                {product.description && (
+                  <p className="text-sm text-muted-foreground truncate max-w-xs">
+                    {product.description}
+                  </p>
+                )}
+              </TableCell>
+              <TableCell className="px-4">{unitLabels[product.unit]}</TableCell>
+              <TableCell className="px-4 text-right font-mono">
+                {formatCurrency(product.unitPrice)}
+              </TableCell>
+              <TableCell className="px-4">{product.vatRate} %</TableCell>
+              <TableCell className="px-4">
+                <Badge variant={product.type === "V" ? "default" : "secondary"}>
+                  {productTypeLabels[product.type]}
+                </Badge>
+              </TableCell>
+              <TableCell className="px-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <DotsThree className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onEdit(product)}>
+                      <Pencil className="size-4 mr-2" />
+                      Redigera
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "Är du säker på att du vill ta bort denna produkt? Om produkten används på fakturor kommer den arkiveras istället."
+                          )
+                        ) {
+                          onDelete(product);
+                        }
+                      }}
+                    >
+                      <Trash className="size-4 mr-2" />
+                      Ta bort
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
     </div>

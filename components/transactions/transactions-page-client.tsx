@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useQueryState, parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Swap, MagnifyingGlass, X, FunnelSimple, Upload, Paperclip } from "@phosphor-icons/react";
+import { MagnifyingGlass, X, FunnelSimple, Upload, Paperclip } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/page-header";
 import { Separator } from "@/components/ui/separator";
-import { Spinner } from "@/components/ui/spinner";
 import { DatePicker } from "@/components/ui/date-picker";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -173,14 +171,6 @@ export function TransactionsPageClient({
     setPage(1);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Spinner className="size-8" />
-      </div>
-    );
-  }
-
   return (
     <>
       <PageHeader currentPage="Transaktioner" />
@@ -321,39 +311,21 @@ export function TransactionsPageClient({
         </div>
 
         {/* Results */}
-        {transactions.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Swap className="size-12 mx-auto mb-4 text-muted-foreground" weight="duotone" />
-              <h3 className="font-medium mb-2">
-                {hasFilters ? "Inga transaktioner matchar" : "Inga transaktioner"}
-              </h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                {hasFilters
-                  ? "Prova att justera dina filter."
-                  : "Importera eller skapa banktransaktioner för att komma igang."}
-              </p>
-              {!hasFilters && (
-                <AddBankTransactionButton workspaceId={workspace.id} />
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <BankTransactionsTable
-            data={transactions}
-            workspaceId={workspace.id}
-            workspaceSlug={workspaceSlug}
-            hasFilters={!!hasFilters}
-            initialSelectedId={selectedId || undefined}
-            onSelectedIdHandled={() => setSelectedId(null)}
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-          />
-        )}
+        <BankTransactionsTable
+          data={transactions}
+          workspaceId={workspace.id}
+          workspaceSlug={workspaceSlug}
+          hasFilters={!!hasFilters}
+          initialSelectedId={selectedId || undefined}
+          onSelectedIdHandled={() => setSelectedId(null)}
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* CSV Import Wizard */}

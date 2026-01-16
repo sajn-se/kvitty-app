@@ -6,7 +6,6 @@ import { useQueryState, parseAsInteger, parseAsString, parseAsStringLiteral, par
 import { Plus, Funnel, BookOpen, CaretUpDown, Check } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -314,71 +313,49 @@ export function InvoicesPageClient() {
         </Popover>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner className="size-8" />
-        </div>
-      ) : invoices?.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>
-            {statusFilter === "all"
-              ? "Inga fakturor annu"
-              : `Inga fakturor med status "${statusLabels[statusFilter]}"`}
-          </p>
-          {statusFilter === "all" && (
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => setCreateOpen(true)}
-            >
-              Skapa din forsta faktura
-            </Button>
-          )}
-        </div>
-      ) : (
-        <InvoicesTable
-          invoices={invoices || []}
-          workspaceSlug={workspace.slug}
-          onDownloadPdf={handleDownloadPdf}
-          onMarkAsSent={(invoiceId) =>
-            setBokforingDialog({ type: "markAsSent", invoiceId })
-          }
-          onMarkAsPaid={(invoiceId) =>
-            setBokforingDialog({ type: "markAsPaid", invoiceId })
-          }
-          onDelete={(invoiceId) =>
-            deleteInvoice.mutate({ workspaceId: workspace.id, id: invoiceId })
-          }
-          onCreateSentVerification={(invoiceId) =>
-            createSentVerification.mutate({ workspaceId: workspace.id, id: invoiceId })
-          }
-          onCreatePaidVerification={(invoiceId) =>
-            createPaidVerification.mutate({ workspaceId: workspace.id, id: invoiceId })
-          }
-          onSendReminder={(invoice) =>
-            setReminderInvoice({
-              id: invoice.id,
-              invoiceNumber: invoice.invoiceNumber,
-              customerName: invoice.customer.name,
-              customerEmail: invoice.customer.email,
-              total: invoice.total,
-              dueDate: invoice.dueDate,
-            })
-          }
-          onDuplicate={(invoiceId) =>
-            duplicateInvoice.mutate({
-              workspaceId: workspace.id,
-              sourceInvoiceId: invoiceId,
-            })
-          }
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-        />
-      )}
+      <InvoicesTable
+        invoices={invoices ?? []}
+        workspaceSlug={workspace.slug}
+        onDownloadPdf={handleDownloadPdf}
+        onMarkAsSent={(invoiceId) =>
+          setBokforingDialog({ type: "markAsSent", invoiceId })
+        }
+        onMarkAsPaid={(invoiceId) =>
+          setBokforingDialog({ type: "markAsPaid", invoiceId })
+        }
+        onDelete={(invoiceId) =>
+          deleteInvoice.mutate({ workspaceId: workspace.id, id: invoiceId })
+        }
+        onCreateSentVerification={(invoiceId) =>
+          createSentVerification.mutate({ workspaceId: workspace.id, id: invoiceId })
+        }
+        onCreatePaidVerification={(invoiceId) =>
+          createPaidVerification.mutate({ workspaceId: workspace.id, id: invoiceId })
+        }
+        onSendReminder={(invoice) =>
+          setReminderInvoice({
+            id: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            customerName: invoice.customer.name,
+            customerEmail: invoice.customer.email,
+            total: invoice.total,
+            dueDate: invoice.dueDate,
+          })
+        }
+        onDuplicate={(invoiceId) =>
+          duplicateInvoice.mutate({
+            workspaceId: workspace.id,
+            sourceInvoiceId: invoiceId,
+          })
+        }
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={handlePageSizeChange}
+        isLoading={isLoading}
+      />
 
       <CreateInvoiceDialog
         workspaceId={workspace.id}

@@ -6,7 +6,7 @@ import {
   journalEntries,
   bankTransactions,
 } from "@/lib/db/schema";
-import { eq, and, isNull, desc, count } from "drizzle-orm";
+import { eq, and, isNull, desc, count, or, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -20,16 +20,25 @@ export const inboxRouter = router({
           .enum(["pending", "processed", "rejected", "error", "archived", "all"])
           .optional()
           .default("all"),
+        search: z.string().optional(),
         limit: z.number().min(1).max(100).default(50),
         offset: z.number().min(0).default(0),
       })
     )
     .query(async ({ ctx, input }) => {
+      const searchCondition = input.search
+        ? or(
+            ilike(inboxEmails.subject, `%${input.search}%`),
+            ilike(inboxEmails.fromEmail, `%${input.search}%`)
+          )
+        : undefined;
+
       const whereClause = and(
         eq(inboxEmails.workspaceId, ctx.workspaceId),
         input.status !== "all"
           ? eq(inboxEmails.status, input.status)
-          : undefined
+          : undefined,
+        searchCondition
       );
 
       const [emails, totalResult] = await Promise.all([

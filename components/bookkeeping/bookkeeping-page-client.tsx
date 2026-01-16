@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
-import { Plus, FileText, CaretRight, CalendarBlank, MagnifyingGlass, X, Upload } from "@phosphor-icons/react";
+import { Plus, CaretRight, CalendarBlank, MagnifyingGlass, X, Upload } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -288,107 +288,90 @@ export function BookkeepingPageClient({
           )}
         </div>
 
-        {/* Loading state */}
-        {isLoading && (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <Spinner className="size-8" />
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!isLoading && (!entries || entries.length === 0) && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <FileText
-                className="size-12 mx-auto mb-4 text-muted-foreground"
-                weight="duotone"
-              />
-              <h3 className="font-medium mb-2">Inga verifikationer</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Skapa en verifikation eller importera fran SIE-fil för att börja bokföra i{" "}
-                {currentPeriod?.label}.
-              </p>
-              <div className="flex gap-2 justify-center">
-                <Button onClick={() => setAddEntryOpen(true)}>
-                  <Plus className="size-4 mr-2" />
-                  Ny verifikation
-                </Button>
-                <Button variant="outline" onClick={() => setSieImportOpen(true)}>
-                  <Upload className="size-4 mr-2" />
-                  Importera SIE
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Journal entries table */}
-        {!isLoading && entries && entries.length > 0 && (
-          <>
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="px-4 w-[80px]">Nr</TableHead>
-                    <TableHead className="px-4 w-[100px]">Datum</TableHead>
-                    <TableHead className="px-4">Beskrivning</TableHead>
-                    <TableHead className="px-4">Typ</TableHead>
-                    <TableHead className="px-4 text-right">Belopp</TableHead>
-                    <TableHead className="px-4 w-[40px]"></TableHead>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-4 w-[80px]">Nr</TableHead>
+                <TableHead className="px-4 w-[100px]">Datum</TableHead>
+                <TableHead className="px-4">Beskrivning</TableHead>
+                <TableHead className="px-4">Typ</TableHead>
+                <TableHead className="px-4 text-right">Belopp</TableHead>
+                <TableHead className="px-4 w-[40px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 10 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="px-4"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-4"><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell className="px-4"><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="px-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="px-4 text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                    <TableCell className="px-4"><Skeleton className="size-4" /></TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map((entry) => {
-                    const totalDebit = entry.lines.reduce(
-                      (sum, l) => sum + parseFloat(l.debit || "0"),
-                      0
-                    );
+                ))
+              ) : !entries || entries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    Inga verifikationer hittades.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                entries.map((entry) => {
+                  const totalDebit = entry.lines.reduce(
+                    (sum, l) => sum + parseFloat(l.debit || "0"),
+                    0
+                  );
 
-                    return (
-                      <TableRow
-                        key={entry.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedEntry(entry)}
-                      >
-                        <TableCell className="px-4 font-mono">
-                          V{entry.verificationNumber}
-                        </TableCell>
-                        <TableCell className="px-4 text-muted-foreground">
-                          {entry.entryDate}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          <div className="font-medium">{entry.description}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {entry.lines.length} konteringar
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4">
-                          <Badge variant="secondary">
-                            {getEntryTypeLabel(entry.entryType)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-4 text-right font-mono">
-                          {formatCurrency(totalDebit)}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          <CaretRight className="size-4 text-muted-foreground" />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </Card>
-            <TablePagination
-              page={page}
-              totalPages={totalPages}
-              total={total}
-              pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={handlePageSizeChange}
-              itemLabel="verifikationer"
-            />
-          </>
+                  return (
+                    <TableRow
+                      key={entry.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setSelectedEntry(entry)}
+                    >
+                      <TableCell className="px-4 font-mono">
+                        V{entry.verificationNumber}
+                      </TableCell>
+                      <TableCell className="px-4 text-muted-foreground">
+                        {entry.entryDate}
+                      </TableCell>
+                      <TableCell className="px-4">
+                        <div className="font-medium">{entry.description}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {entry.lines.length} konteringar
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4">
+                        <Badge variant="secondary">
+                          {getEntryTypeLabel(entry.entryType)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 text-right font-mono">
+                        {formatCurrency(totalDebit)}
+                      </TableCell>
+                      <TableCell className="px-4">
+                        <CaretRight className="size-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+        {!isLoading && total > 0 && (
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
+            itemLabel="verifikationer"
+          />
         )}
       </div>
 

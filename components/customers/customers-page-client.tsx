@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQueryState, parseAsInteger } from "nuqs";
 import { Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
 import { useWorkspace } from "@/components/workspace-provider";
 import type { Customer } from "@/lib/db/schema";
@@ -57,37 +56,21 @@ export function CustomersPageClient() {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner className="size-8" />
-        </div>
-      ) : customers?.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>Inga kunder ännu</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => setCreateOpen(true)}
-          >
-            Lägg till din första kund
-          </Button>
-        </div>
-      ) : (
-        <CustomersTable
-          customers={customers || []}
-          onEdit={setEditingCustomer}
-          onDelete={(customer) => {
-            deleteCustomer.mutate({ workspaceId: workspace.id, id: customer.id });
-          }}
-          onCreateInvoice={(customer) => setInvoiceCustomerId(customer.id)}
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-        />
-      )}
+      <CustomersTable
+        customers={customers ?? []}
+        onEdit={setEditingCustomer}
+        onDelete={(customer) => {
+          deleteCustomer.mutate({ workspaceId: workspace.id, id: customer.id });
+        }}
+        onCreateInvoice={(customer) => setInvoiceCustomerId(customer.id)}
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={handlePageSizeChange}
+        isLoading={isLoading}
+      />
 
       <CustomerFormDialog
         workspaceId={workspace.id}

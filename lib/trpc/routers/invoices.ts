@@ -2271,8 +2271,6 @@ export const invoicesRouter = router({
           rotRutMaterialAmount: source.rotRutMaterialAmount,
           rotRutDeductionAmount: source.rotRutDeductionAmount,
           rotRutDeductionManualOverride: source.rotRutDeductionManualOverride,
-          // Margin scheme
-          marginSchemeCategory: source.marginSchemeCategory,
           // New OCR
           ocrNumber,
           // Don't copy: share token, journal entries, view tracking, sent info
