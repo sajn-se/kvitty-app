@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, File, FileX } from "lucide-react";
+import { Eye, File, FileX, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,6 +13,7 @@ import type { bankTransactions } from "@/lib/db/schema";
 export type BankTransaction = typeof bankTransactions.$inferSelect & {
   createdByUser: { id: string; name: string | null; email: string } | null;
   attachments?: { id: string }[];
+  comments?: { id: string }[];
 };
 
 export const createColumns = (
@@ -67,11 +68,13 @@ export const createColumns = (
       cell: ({ row }) => {
         const hasAttachments = (row.original.attachments?.length ?? 0) > 0;
         const attachmentCount = row.original.attachments?.length ?? 0;
+        const hasComments = (row.original.comments?.length ?? 0) > 0;
+        const commentCount = row.original.comments?.length ?? 0;
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center">
+                <div className="flex h-7 w-7 items-center justify-center">
                   {hasAttachments ? (
                     <File className="h-4 w-4 text-muted-foreground" />
                   ) : (
@@ -85,9 +88,24 @@ export const createColumns = (
                   : "Inga bilagor"}
               </TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex h-7 w-7 items-center justify-center">
+                  <MessageCircle
+                    className={`h-4 w-4 ${hasComments ? "text-muted-foreground" : "text-muted-foreground/40"}`}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {hasComments
+                  ? `${commentCount} kommentar${commentCount > 1 ? "er" : ""}`
+                  : "Inga kommentarer"}
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="ghost"
               size="icon"
+              className="h-7 w-7"
               onClick={(e) => {
                 e.stopPropagation();
                 onView(row.original);

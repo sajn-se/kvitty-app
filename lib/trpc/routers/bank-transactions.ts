@@ -83,6 +83,9 @@ export const bankTransactionsRouter = router({
             attachments: {
               columns: { id: true },
             },
+            comments: {
+              columns: { id: true },
+            },
           },
         }),
         ctx.db
