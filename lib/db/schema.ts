@@ -132,6 +132,7 @@ export const inboxEmailStatusEnum = pgEnum("inbox_email_status", [
   "processed",
   "rejected",
   "error",
+  "archived",
 ]);
 
 // Margin scheme types for used goods taxation (vinstmarginalbeskattning)
@@ -343,6 +344,7 @@ export const inboxEmails = pgTable("inbox_emails", {
   receivedAt: timestamp("received_at").notNull(),
   processedAt: timestamp("processed_at"),
   status: inboxEmailStatusEnum("status").default("pending").notNull(),
+  rejectionReason: text("rejection_reason"), // Why the email was rejected (e.g., "sender_not_allowed")
   rawMessageId: text("raw_message_id"), // For idempotency
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

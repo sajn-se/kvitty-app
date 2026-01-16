@@ -18,7 +18,7 @@ import type { InboxEmailStatusValue } from "@/lib/validations/inbox";
 
 type StatusFilter = InboxEmailStatusValue | "all";
 
-const statusOptions = ["all", "pending", "processed", "rejected", "error"] as const;
+const statusOptions = ["all", "pending", "processed", "rejected", "error", "archived"] as const;
 
 const statusLabels: Record<StatusFilter, string> = {
   all: "Alla",
@@ -26,6 +26,7 @@ const statusLabels: Record<StatusFilter, string> = {
   processed: "Behandlade",
   rejected: "Avvisade",
   error: "Fel",
+  archived: "Arkiverade",
 };
 
 const DEFAULT_PAGE_SIZE = 20;

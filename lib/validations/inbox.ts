@@ -22,6 +22,7 @@ export const inboxEmailStatusValues = [
   "processed",
   "rejected",
   "error",
+  "archived",
 ] as const;
 
 export type InboxEmailStatusValue = (typeof inboxEmailStatusValues)[number];

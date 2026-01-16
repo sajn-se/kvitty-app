@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Clock, CheckCircle, XCircle, WarningCircle, Paperclip } from "@phosphor-icons/react";
+import { Clock, CheckCircle, XCircle, WarningCircle, Paperclip, Archive } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -14,6 +14,7 @@ export type InboxEmail = {
   emailBody: string | null;
   receivedAt: Date;
   status: InboxEmailStatus;
+  rejectionReason: string | null;
   attachments: {
     id: string;
     fileName: string;
@@ -51,6 +52,11 @@ const statusConfig: Record<
     label: "Fel",
     icon: WarningCircle,
     variant: "destructive",
+  },
+  archived: {
+    label: "Arkiverad",
+    icon: Archive,
+    variant: "secondary",
   },
 };
 

@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   FileXls,
   FileCsv,
+  Archive,
 } from "@phosphor-icons/react";
 import {
   Sheet,
@@ -59,6 +60,7 @@ const statusConfig: Record<
   processed: { label: "Behandlad", icon: CheckCircle, variant: "default" },
   rejected: { label: "Avvisad", icon: XCircle, variant: "destructive" },
   error: { label: "Fel", icon: WarningCircle, variant: "destructive" },
+  archived: { label: "Arkiverad", icon: Archive, variant: "secondary" },
 };
 
 function formatFileSize(bytes: number | null): string {
@@ -123,6 +125,17 @@ export function InboxDetailSheet({
     },
   });
 
+  const archiveMutation = trpc.inbox.updateStatus.useMutation({
+    onSuccess: () => {
+      utils.inbox.list.invalidate({ workspaceId });
+      toast.success("E-postmeddelandet har arkiverats");
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Kunde inte arkivera e-postmeddelandet");
+    },
+  });
+
   if (!email) return null;
 
   const StatusIcon = statusConfig[email.status].icon;
@@ -134,33 +147,66 @@ export function InboxDetailSheet({
           side="right"
           className="data-[side=right]:!w-[550px] data-[side=right]:sm:!max-w-[550px] flex flex-col"
         >
-          <SheetHeader className="relative">
-            <Badge
-              variant={statusConfig[email.status].variant}
-              className="gap-1 absolute top-4 right-12"
-            >
-              <StatusIcon className="size-3" />
-              {statusConfig[email.status].label}
-            </Badge>
-            <SheetTitle className="pr-8">
+          <SheetHeader>
+            <SheetTitle className="truncate pr-8">
               {email.subject || "(Inget ämne)"}
             </SheetTitle>
             <SheetDescription>
               Från: {email.fromEmail}
             </SheetDescription>
-            <div className="text-sm text-muted-foreground">
-              Mottaget:{" "}
-              {format(new Date(email.receivedAt), "d MMMM yyyy 'kl.' HH:mm", {
-                locale: sv,
-              })}{" "}
-              ({formatDistanceToNow(new Date(email.receivedAt), {
-                addSuffix: true,
-                locale: sv,
-              })})
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <div className="text-sm text-muted-foreground">
+                {format(new Date(email.receivedAt), "d MMMM yyyy 'kl.' HH:mm", {
+                  locale: sv,
+                })}
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={statusConfig[email.status].variant}
+                  className="gap-1"
+                >
+                  <StatusIcon className="size-3" />
+                  {statusConfig[email.status].label}
+                </Badge>
+                {email.status !== "archived" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() =>
+                      archiveMutation.mutate({
+                        workspaceId,
+                        emailId: email.id,
+                        status: "archived",
+                      })
+                    }
+                    disabled={archiveMutation.isPending}
+                  >
+                    {archiveMutation.isPending ? (
+                      <Spinner className="size-3 mr-1" />
+                    ) : (
+                      <Archive className="size-3 mr-1" />
+                    )}
+                    Arkivera
+                  </Button>
+                )}
+              </div>
             </div>
           </SheetHeader>
 
           <div className="flex-1 flex flex-col min-h-0 mt-4 px-4 overflow-y-auto">
+
+            {/* Rejection reason */}
+            {email.status === "rejected" && email.rejectionReason && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+                <p className="font-medium text-destructive">Anledning till avvisning</p>
+                <p className="text-muted-foreground mt-1">
+                  {email.rejectionReason === "sender_not_allowed"
+                    ? "Avsändaren finns inte i listan över godkända e-postadresser."
+                    : email.rejectionReason}
+                </p>
+              </div>
+            )}
 
             {/* Email body */}
             {email.emailBody && (

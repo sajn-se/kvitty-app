@@ -17,7 +17,7 @@ export const inboxRouter = router({
       z.object({
         workspaceId: z.string(),
         status: z
-          .enum(["pending", "processed", "rejected", "error", "all"])
+          .enum(["pending", "processed", "rejected", "error", "archived", "all"])
           .optional()
           .default("all"),
         limit: z.number().min(1).max(100).default(50),
@@ -214,7 +214,7 @@ export const inboxRouter = router({
       z.object({
         workspaceId: z.string(),
         emailId: z.string(),
-        status: z.enum(["pending", "processed", "rejected", "error"]),
+        status: z.enum(["pending", "processed", "rejected", "error", "archived"]),
       })
     )
     .mutation(async ({ ctx, input }) => {
