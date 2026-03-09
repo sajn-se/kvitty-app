@@ -286,6 +286,7 @@ export function FullModeSidebar({
           <NavPeriods
             workspaceSlug={workspace.slug}
             isFullMode
+            onAddPeriod={() => setAddPeriodOpen(true)}
             expanded={bookkeepingExpanded}
             onExpandedChange={setBookkeepingExpanded}
           />

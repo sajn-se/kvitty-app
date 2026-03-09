@@ -152,6 +152,7 @@ function SimpleSidebar({
           <NavPeriods
             workspaceSlug={workspace.slug}
             onAddVerification={() => setAddBankTransactionOpen(true)}
+            onAddPeriod={() => setAddPeriodOpen(true)}
             expanded={transactionsExpanded}
             onExpandedChange={setTransactionsExpanded}
           />

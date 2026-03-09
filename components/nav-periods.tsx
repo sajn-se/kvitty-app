@@ -9,6 +9,7 @@ import {
   SidebarGroupAction,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
@@ -21,12 +22,14 @@ import {
 export function NavPeriods({
   workspaceSlug,
   onAddVerification,
+  onAddPeriod,
   isFullMode = false,
   expanded = true,
   onExpandedChange,
 }: {
   workspaceSlug: string;
   onAddVerification?: () => void;
+  onAddPeriod?: () => void;
   isFullMode?: boolean;
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
@@ -105,6 +108,11 @@ export function NavPeriods({
                   <span>Perioder</span>
                 </Link>
               </SidebarMenuButton>
+              {onAddPeriod && (
+                <SidebarMenuAction showOnHover onClick={onAddPeriod} title="Ny period">
+                  <Plus className="size-4" />
+                </SidebarMenuAction>
+              )}
             </SidebarMenuItem>
           </SidebarMenu>
         </CollapsibleContent>

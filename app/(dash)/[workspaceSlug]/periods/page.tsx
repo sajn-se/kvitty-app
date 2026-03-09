@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { PeriodsTable } from "@/components/periods/periods-table";
+import { PeriodsPageActions } from "@/components/periods/periods-page-actions";
 
 export const metadata: Metadata = {
   title: "Perioder — Kvitty",
@@ -55,11 +56,17 @@ export default async function PeriodsPage({
         currentPage="Perioder"
       />
       <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
-        <div>
-          <h1 className="text-2xl font-bold">Perioder</h1>
-          <p className="text-muted-foreground text-sm">
-            Alla räkenskapsperioder för detta arbetsområde
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Perioder</h1>
+            <p className="text-muted-foreground text-sm">
+              Alla räkenskapsperioder för detta arbetsområde
+            </p>
+          </div>
+          <PeriodsPageActions
+            workspaceId={workspace.id}
+            workspaceSlug={workspaceSlug}
+          />
         </div>
 
         <div className="rounded-lg border">
