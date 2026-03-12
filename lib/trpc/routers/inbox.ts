@@ -48,6 +48,9 @@ export const inboxRouter = router({
             attachments: {
               with: {
                 links: true,
+                extraction: {
+                  columns: { id: true, status: true },
+                },
               },
             },
           },

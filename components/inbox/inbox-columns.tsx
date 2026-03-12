@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Clock, CheckCircle, XCircle, WarningCircle, Paperclip, Archive } from "@phosphor-icons/react";
+import { Clock, CheckCircle, XCircle, WarningCircle, Paperclip, Archive, Sparkle } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -26,6 +26,10 @@ export type InboxEmail = {
       journalEntryId: string | null;
       bankTransactionId: string | null;
     }[];
+    extraction?: {
+      id: string;
+      status: string;
+    } | null;
   }[];
 };
 
@@ -104,9 +108,10 @@ export const createColumns = (): ColumnDef<InboxEmail>[] => [
       const attachments = row.original.attachments;
       const count = attachments.length;
       const linkedCount = attachments.filter((a) => a.links.length > 0).length;
+      const extractedCount = attachments.filter((a) => a.extraction?.status === "completed").length;
 
       if (count === 0) {
-        return <span className="text-muted-foreground">—</span>;
+        return <span className="text-muted-foreground">-</span>;
       }
 
       return (
@@ -116,6 +121,12 @@ export const createColumns = (): ColumnDef<InboxEmail>[] => [
           {linkedCount > 0 && (
             <span className="text-xs text-green-600">
               ({linkedCount} kopplad{linkedCount > 1 ? "e" : ""})
+            </span>
+          )}
+          {extractedCount > 0 && (
+            <span className="text-xs text-primary flex items-center gap-0.5">
+              <Sparkle className="size-3" />
+              AI
             </span>
           )}
         </div>

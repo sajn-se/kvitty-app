@@ -7,6 +7,7 @@ export const FLAGS = {
   AI_BOOKKEEPING_ASSISTANT: "ai_bookkeeping_assistant",
   AI_RECEIPT_ANALYSIS: "ai_receipt_analysis",
   AI_BANK_EXTRACTION: "ai_bank_extraction",
+  AI_DOCUMENT_EXTRACTION: "ai_document_extraction",
   ADVANCED_REPORTING: "advanced_reporting",
   PEPPOL_EINVOICING: "peppol_einvoicing",
   MULTI_CURRENCY: "multi_currency",

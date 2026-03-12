@@ -37,8 +37,11 @@ import { VERIFICATION_TEMPLATES } from "@/lib/consts/verification-templates";
 import type { bankTransactions } from "@/lib/db/schema";
 import { EditBankTransactionDialog } from "./edit-bank-transaction-dialog";
 import { SearchInboxDialog } from "./search-inbox-dialog";
+import { DocumentMatchSuggestions } from "./document-match-suggestions";
 import { MentionTextarea } from "@/components/comments/mention-textarea";
 import { CommentContent } from "@/components/comments/comment-content";
+import { FeatureGate } from "@/components/feature-gate";
+import { FLAGS } from "@/lib/feature-flags/types";
 
 type BankTransaction = typeof bankTransactions.$inferSelect;
 
@@ -430,6 +433,14 @@ export function BankTransactionDetailSheet({
               </div>
             </div>
           )}
+
+          {/* Document Match Suggestions */}
+          <FeatureGate flag={FLAGS.AI_DOCUMENT_EXTRACTION}>
+            <DocumentMatchSuggestions
+              workspaceId={workspaceId}
+              bankTransactionId={transaction.id}
+            />
+          </FeatureGate>
 
           <Tabs defaultValue="attachments" className="flex flex-col flex-1 min-h-0">
             <TabsList className="grid w-full grid-cols-2">

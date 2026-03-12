@@ -26,6 +26,8 @@ import { allowedEmailsRouter } from "./routers/allowed-emails";
 import { apiKeysRouter } from "./routers/api-keys";
 // Smart features
 import { categorizationRulesRouter } from "./routers/categorization-rules";
+// AI document extraction
+import { documentExtractionsRouter } from "./routers/document-extractions";
 
 export const appRouter = router({
   workspaces: workspacesRouter,
@@ -55,6 +57,8 @@ export const appRouter = router({
   apiKeys: apiKeysRouter,
   // Smart features
   categorizationRules: categorizationRulesRouter,
+  // AI document extraction
+  documentExtractions: documentExtractionsRouter,
 });
 
 export type AppRouter = typeof appRouter;

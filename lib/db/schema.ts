@@ -135,6 +135,12 @@ export const inboxEmailStatusEnum = pgEnum("inbox_email_status", [
   "archived",
 ]);
 
+export const documentExtractionStatusEnum = pgEnum("document_extraction_status", [
+  "pending",
+  "completed",
+  "failed",
+]);
+
 // Margin scheme types for used goods taxation (vinstmarginalbeskattning)
 export const marginSchemeTypeEnum = pgEnum("margin_scheme_type", [
   "used_goods",       // Begagnade varor
@@ -406,6 +412,61 @@ export const inboxAttachmentLinks = pgTable(
     unique("inbox_attachment_journal_link").on(table.inboxAttachmentId, table.journalEntryId),
     // Prevent duplicate links: same attachment to same bank transaction
     unique("inbox_attachment_bank_link").on(table.inboxAttachmentId, table.bankTransactionId),
+  ]
+);
+
+// AI document extractions from inbox attachments
+export const documentExtractions = pgTable("document_extractions", {
+  id: text("id").primaryKey().$defaultFn(() => createCuid()),
+  inboxAttachmentId: text("inbox_attachment_id")
+    .notNull()
+    .unique()
+    .references(() => inboxAttachments.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  status: documentExtractionStatusEnum("status").default("pending").notNull(),
+  vendor: text("vendor"),
+  date: date("date"),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }),
+  vatAmount: decimal("vat_amount", { precision: 15, scale: 2 }),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
+  currency: text("currency").default("SEK"),
+  description: text("description"),
+  rawText: text("raw_text"),
+  suggestedEntry: jsonb("suggested_entry"),
+  items: jsonb("items"),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }),
+  errorMessage: text("error_message"),
+  extractedAt: timestamp("extracted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Match suggestions between document extractions and bank transactions
+export const documentMatchSuggestions = pgTable(
+  "document_match_suggestions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createCuid()),
+    documentExtractionId: text("document_extraction_id")
+      .notNull()
+      .references(() => documentExtractions.id, { onDelete: "cascade" }),
+    bankTransactionId: text("bank_transaction_id")
+      .notNull()
+      .references(() => bankTransactions.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    score: decimal("score", { precision: 3, scale: 2 }),
+    amountMatch: boolean("amount_match"),
+    dateMatch: boolean("date_match"),
+    textMatch: boolean("text_match"),
+    status: text("status").default("pending").notNull(),
+    confirmedBy: text("confirmed_by").references(() => user.id),
+    confirmedAt: timestamp("confirmed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("document_match_unique").on(table.documentExtractionId, table.bankTransactionId),
   ]
 );
 
@@ -1132,6 +1193,7 @@ export const inboxAttachmentsRelations = relations(
       references: [workspaces.id],
     }),
     links: many(inboxAttachmentLinks),
+    extraction: one(documentExtractions),
   })
 );
 
@@ -1152,6 +1214,43 @@ export const inboxAttachmentLinksRelations = relations(
     }),
     createdByUser: one(user, {
       fields: [inboxAttachmentLinks.createdBy],
+      references: [user.id],
+    }),
+  })
+);
+
+export const documentExtractionsRelations = relations(
+  documentExtractions,
+  ({ one, many }) => ({
+    inboxAttachment: one(inboxAttachments, {
+      fields: [documentExtractions.inboxAttachmentId],
+      references: [inboxAttachments.id],
+    }),
+    workspace: one(workspaces, {
+      fields: [documentExtractions.workspaceId],
+      references: [workspaces.id],
+    }),
+    matchSuggestions: many(documentMatchSuggestions),
+  })
+);
+
+export const documentMatchSuggestionsRelations = relations(
+  documentMatchSuggestions,
+  ({ one }) => ({
+    extraction: one(documentExtractions, {
+      fields: [documentMatchSuggestions.documentExtractionId],
+      references: [documentExtractions.id],
+    }),
+    bankTransaction: one(bankTransactions, {
+      fields: [documentMatchSuggestions.bankTransactionId],
+      references: [bankTransactions.id],
+    }),
+    workspace: one(workspaces, {
+      fields: [documentMatchSuggestions.workspaceId],
+      references: [workspaces.id],
+    }),
+    confirmedByUser: one(user, {
+      fields: [documentMatchSuggestions.confirmedBy],
       references: [user.id],
     }),
   })
@@ -1284,6 +1383,7 @@ export const bankTransactionsRelations = relations(
     attachments: many(attachments),
     comments: many(comments),
     inboxAttachmentLinks: many(inboxAttachmentLinks),
+    documentMatchSuggestions: many(documentMatchSuggestions),
   })
 );
 
@@ -1743,6 +1843,13 @@ export type NewInboxAttachment = typeof inboxAttachments.$inferInsert;
 
 export type InboxAttachmentLink = typeof inboxAttachmentLinks.$inferSelect;
 export type NewInboxAttachmentLink = typeof inboxAttachmentLinks.$inferInsert;
+
+export type DocumentExtraction = typeof documentExtractions.$inferSelect;
+export type NewDocumentExtraction = typeof documentExtractions.$inferInsert;
+export type DocumentExtractionStatus = (typeof documentExtractionStatusEnum.enumValues)[number];
+
+export type DocumentMatchSuggestion = typeof documentMatchSuggestions.$inferSelect;
+export type NewDocumentMatchSuggestion = typeof documentMatchSuggestions.$inferInsert;
 
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;

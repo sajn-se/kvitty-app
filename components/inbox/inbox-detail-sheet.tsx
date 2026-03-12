@@ -41,6 +41,10 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { sv } from "date-fns/locale";
 import { LinkAttachmentDialog } from "./link-attachment-dialog";
+import { ExtractionSummary } from "./extraction-summary";
+import { DocumentTransactionSuggestions } from "./document-transaction-suggestions";
+import { FeatureGate } from "@/components/feature-gate";
+import { FLAGS } from "@/lib/feature-flags/types";
 import type { InboxEmail } from "./inbox-columns";
 import type { WorkspaceMode, InboxEmailStatus } from "@/lib/db/schema";
 
@@ -352,6 +356,20 @@ export function InboxDetailSheet({
                             </Button>
                           )}
                         </div>
+
+                        {/* AI Extraction & Matching */}
+                        <FeatureGate flag={FLAGS.AI_DOCUMENT_EXTRACTION}>
+                          <div className="col-span-full">
+                            <ExtractionSummary
+                              workspaceId={workspaceId}
+                              inboxAttachmentId={attachment.id}
+                            />
+                            <DocumentTransactionSuggestions
+                              workspaceId={workspaceId}
+                              inboxAttachmentId={attachment.id}
+                            />
+                          </div>
+                        </FeatureGate>
                       </div>
                     );
                   })}

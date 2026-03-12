@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { generateObject } from "ai";
 import { router, workspaceProcedure } from "../init";
-import { bankTransactions, auditLogs, bankAccounts, journalEntries, bankImportBatches, csvImportProfiles, attachments } from "@/lib/db/schema";
+import { bankTransactions, auditLogs, bankAccounts, journalEntries, bankImportBatches, csvImportProfiles, attachments, documentExtractions, documentMatchSuggestions, workspaces } from "@/lib/db/schema";
 import { eq, and, isNull, inArray, or, count, desc, gte, lte, ilike, sql } from "drizzle-orm";
 import {
   createBankTransactionsSchema,
@@ -24,6 +24,69 @@ import {
   checkAndIncrementAIUsage,
   AIRateLimitError,
 } from "@/lib/ai/rate-limiter";
+import { FLAGS } from "@/lib/feature-flags/types";
+import { hasFeature } from "@/lib/feature-flags/utils";
+import { calculateMatchScore, filterAndRankMatches } from "@/lib/utils/document-matching";
+
+async function triggerDocumentMatching(
+  db: typeof import("@/lib/db").db,
+  workspaceId: string,
+  transactionIds: string[]
+) {
+  const workspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.id, workspaceId),
+    columns: { id: true, featureFlags: true },
+  });
+  if (!workspace || !hasFeature(workspace, FLAGS.AI_DOCUMENT_EXTRACTION)) return;
+
+  const transactions = await db.query.bankTransactions.findMany({
+    where: and(
+      inArray(bankTransactions.id, transactionIds),
+      eq(bankTransactions.workspaceId, workspaceId)
+    ),
+  });
+
+  for (const transaction of transactions) {
+    if (!transaction.accountingDate) continue;
+
+    const txDate = new Date(transaction.accountingDate);
+    const minDate = new Date(txDate);
+    minDate.setDate(minDate.getDate() - 7);
+    const maxDate = new Date(txDate);
+    maxDate.setDate(maxDate.getDate() + 7);
+
+    const extractions = await db.query.documentExtractions.findMany({
+      where: and(
+        eq(documentExtractions.workspaceId, workspaceId),
+        eq(documentExtractions.status, "completed"),
+        gte(documentExtractions.date, minDate.toISOString().split("T")[0]),
+        lte(documentExtractions.date, maxDate.toISOString().split("T")[0])
+      ),
+    });
+
+    const scored = extractions.map((extraction) => ({
+      extraction,
+      score: calculateMatchScore(extraction, transaction),
+    }));
+
+    const matches = filterAndRankMatches(scored);
+
+    for (const match of matches) {
+      await db
+        .insert(documentMatchSuggestions)
+        .values({
+          documentExtractionId: match.extraction.id,
+          bankTransactionId: transaction.id,
+          workspaceId,
+          score: match.score.score.toString(),
+          amountMatch: match.score.amountMatch,
+          dateMatch: match.score.dateMatch,
+          textMatch: match.score.textMatch,
+        })
+        .onConflictDoNothing();
+    }
+  }
+}
 
 export const bankTransactionsRouter = router({
   list: workspaceProcedure
@@ -115,6 +178,10 @@ export const bankTransactionsRouter = router({
             },
             comments: {
               columns: { id: true },
+            },
+            documentMatchSuggestions: {
+              columns: { id: true },
+              where: eq(documentMatchSuggestions.status, "pending"),
             },
           },
         }),
@@ -661,6 +728,11 @@ ${input.content}`,
         }))
       );
 
+      // Trigger document matching if feature flag is enabled (fire-and-forget)
+      if (created.length > 0) {
+        triggerDocumentMatching(ctx.db, ctx.workspaceId, created.map((t) => t.id)).catch(() => {});
+      }
+
       return { count: created.length, transactions: created };
     }),
 
@@ -827,6 +899,11 @@ ${input.content}`,
           duplicateTransactions: duplicateCount,
         })
         .where(eq(bankImportBatches.id, importBatch.id));
+
+      // Trigger document matching if feature flag is enabled (fire-and-forget)
+      if (created.length > 0) {
+        triggerDocumentMatching(ctx.db, ctx.workspaceId, created.map((t) => t.id)).catch(() => {});
+      }
 
       return {
         total: transactions.length,

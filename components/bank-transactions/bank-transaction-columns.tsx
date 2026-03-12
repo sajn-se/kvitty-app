@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, File, FileX, MessageCircle } from "lucide-react";
+import { Eye, File, FileX, MessageCircle, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -14,6 +14,7 @@ export type BankTransaction = typeof bankTransactions.$inferSelect & {
   createdByUser: { id: string; name: string | null; email: string } | null;
   attachments?: { id: string }[];
   comments?: { id: string }[];
+  documentMatchSuggestions?: { id: string }[];
 };
 
 export const createColumns = (
@@ -70,8 +71,21 @@ export const createColumns = (
         const attachmentCount = row.original.attachments?.length ?? 0;
         const hasComments = (row.original.comments?.length ?? 0) > 0;
         const commentCount = row.original.comments?.length ?? 0;
+        const pendingDocSuggestions = row.original.documentMatchSuggestions?.length ?? 0;
         return (
           <div className="flex items-center justify-end">
+            {pendingDocSuggestions > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex h-7 w-7 items-center justify-center">
+                    <FileSearch className="h-4 w-4 text-primary" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {pendingDocSuggestions} matchande dokument
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex h-7 w-7 items-center justify-center">
