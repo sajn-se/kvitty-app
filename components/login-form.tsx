@@ -23,10 +23,15 @@ import {
   type LoginMethod,
 } from "@/lib/login-method-cookie";
 
+type LoginFormProps = React.ComponentProps<"div"> & {
+  showEmailLogin?: boolean;
+};
+
 export function LoginForm({
   className,
+  showEmailLogin = true,
   ...props
-}: React.ComponentProps<"div">) {
+}: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +44,7 @@ export function LoginForm({
     null
   );
   const isGoogleSSOEnabled = process.env.NEXT_PUBLIC_GOOGLE_SSO === "true";
+  const registrationsEnabled = process.env.NEXT_PUBLIC_REGISTRATIONS_ENABLED === "true";
 
   useEffect(() => {
     setInWebView(isWebView());
@@ -101,7 +107,9 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={showEmailLogin ? handleSubmit : (e) => e.preventDefault()}
+      >
         <FieldGroup>
           <div className="flex flex-col items-center gap-2 text-center">
             <a
@@ -114,9 +122,11 @@ export function LoginForm({
               <span className="sr-only">Kvitty</span>
             </a>
             <h1 className="text-xl font-bold">Logga in på Kvitty</h1>
-            <FieldDescription>
-              Har du inget konto? <a href="/signup">Registrera dig</a>
-            </FieldDescription>
+            {registrationsEnabled && (
+              <FieldDescription>
+                Har du inget konto? <a href="/signup">Registrera dig</a>
+              </FieldDescription>
+            )}
           </div>
           {isGoogleSSOEnabled && (
             <>
@@ -135,7 +145,8 @@ export function LoginForm({
                     >
                       {copied ? "Kopierad!" : "Kopiera länk"}
                     </button>{" "}
-                    och öppna i Chrome/Safari, eller använd e-post nedan.
+                    och öppna i Chrome/Safari
+                    {showEmailLogin ? ", eller använd e-post nedan." : "."}
                   </p>
                 </div>
               )}
@@ -169,47 +180,53 @@ export function LoginForm({
                   )}
                 </div>
               </Field>
-              <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-                <span className="relative z-10 bg-background px-2 text-muted-foreground">
-                  eller
-                </span>
-              </div>
+              {showEmailLogin && (
+                <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+                  <span className="relative z-10 bg-background px-2 text-muted-foreground">
+                    eller
+                  </span>
+                </div>
+              )}
             </>
           )}
-          <Field>
-            <div className="relative">
-              <FieldLabel htmlFor="email">E-post</FieldLabel>
-              <Input
-                id="email"
-                type="email"
-                placeholder="din@epost.se"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                className={cn(
-                  lastUsedMethod === "email" &&
-                    "border-blue-400/50 ring-1 ring-blue-400/10"
-                )}
-              />
-              {lastUsedMethod === "email" && (
-                <Badge
-                  variant="blue"
-                  className="absolute -right-2 -top-2 text-[10px] bg-blue-100 dark:bg-blue-900/50"
-                >
-                  Senast använd
-                </Badge>
+          {showEmailLogin && (
+            <>
+              <Field>
+                <div className="relative">
+                  <FieldLabel htmlFor="email">E-post</FieldLabel>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="din@epost.se"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    className={cn(
+                      lastUsedMethod === "email" &&
+                        "border-blue-400/50 ring-1 ring-blue-400/10"
+                    )}
+                  />
+                  {lastUsedMethod === "email" && (
+                    <Badge
+                      variant="blue"
+                      className="absolute -right-2 -top-2 text-[10px] bg-blue-100 dark:bg-blue-900/50"
+                    >
+                      Senast använd
+                    </Badge>
+                  )}
+                </div>
+              </Field>
+              {error && (
+                <p className="text-sm text-red-500 text-center">{error}</p>
               )}
-            </div>
-          </Field>
-          {error && (
-            <p className="text-sm text-red-500 text-center">{error}</p>
+              <Field>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? <Spinner /> : "Skicka inloggningslänk"}
+                </Button>
+              </Field>
+            </>
           )}
-          <Field>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? <Spinner /> : "Skicka inloggningslänk"}
-            </Button>
-          </Field>
         </FieldGroup>
       </form>
       <FieldDescription className="px-6 text-center">

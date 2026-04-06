@@ -111,6 +111,9 @@ ENCRYPTION_KEY=your-encryption-key-here  # Generate: openssl rand -base64 32
 # File Storage (defaults to local if not set)
 STORAGE_PROVIDER=local
 
+# Disable email sending if you do not want to configure UseSend
+USESEND_ENABLED=false
+
 # Optional: Add these for additional features
 # GROQ_API_KEY=your-groq-api-key  # For AI features
 # GOOGLE_CLIENT_ID=your-google-client-id  # For Google OAuth
@@ -128,6 +131,23 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Docker (Postgres + app)
+
+Copy the sample file first and fill in the required environment variables:
+```bash
+cp .env.example .env
+```
+
+Build and run:
+```bash
+docker compose up --build
+```
+
+Push the schema once the app container is running:
+```bash
+docker compose exec kvitty-app pnpm db:push
+```
 
 ## File Storage
 
@@ -180,6 +200,9 @@ npx tsx scripts/test-storage.ts  # Test file storage (local or S3)
 
 ```
 kvitty-app/
+├── docker/                  # Docker build files
+│   └── Dockerfile           # App container build
+├── docker-compose.yml       # App + Postgres compose config
 ├── app/                     # Next.js App Router
 │   ├── (auth)/              # Authentication pages
 │   ├── (dash)/              # Dashboard (requires auth)
@@ -244,6 +267,13 @@ The application uses better-auth with support for:
 - Email OTP (one-time password)
 - Google OAuth
 
+How it works in this codebase:
+- `lib/auth.ts` configures better-auth with the Drizzle adapter and Postgres, and defines session lifetime.
+- `app/api/auth/[...all]/route.ts` exposes the better-auth handlers for Next.js.
+- Magic link and OTP emails are sent via `lib/email/mailer.ts`.
+- better-auth persists users, sessions, accounts, and verification tokens in the database tables it manages.
+- Server components and API routes read sessions via `auth.api.getSession`, while client hooks live in `lib/auth-client.ts`.
+
 ### Routing
 
 - `app/(auth)/` - Public authentication pages
@@ -293,6 +323,11 @@ See `.env.example` for all necessary variables:
 - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 - `NEXT_PUBLIC_GOOGLE_SSO` - Set to `"true"` to enable Google login button
 - `NEXT_PUBLIC_REGISTRATIONS_ENABLED` - Enable/disable new user registrations (default: `"true"`). Set to `"false"` to disable public signups. When disabled, users attempting to sign up will be redirected to the login page. Existing users can still log in, and workspace invitations will still work.
+- `USESEND_API_KEY` - UseSend API key for email sending
+- `USESEND_URL` - UseSend API base URL
+- `USESEND_ENABLED` - Set to `"false"` to disable UseSend email sending. When enabled, `USESEND_API_KEY` and `USESEND_URL` are required.
+- `EMAIL_FROM` - Sender address for transactional emails (default: `noreply@kvitty.se` if unset)
+- `DATABASE_PASSWORD` - Postgres password used by `docker-compose.yml` (Docker only)
 
 ## Nice to Have
 
