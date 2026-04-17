@@ -261,14 +261,15 @@ export function BankTransactionDetailSheet({
     try {
       const response = await fetch(fileUrl);
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const downloadBlob = new Blob([blob], { type: "application/octet-stream" });
+      const url = window.URL.createObjectURL(downloadBlob);
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
     } catch (error) {
       console.error("Download failed:", error);
       toast.error("Nedladdning misslyckades");
@@ -517,14 +518,13 @@ export function BankTransactionDetailSheet({
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <a
-                          href={attachment.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium hover:underline truncate block"
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadFile(attachment.fileUrl, attachment.fileName)}
+                          className="text-sm font-medium hover:underline truncate block text-left"
                         >
                           {attachment.fileName}
-                        </a>
+                        </button>
                         <p className="text-xs text-muted-foreground">
                           {formatFileSize(attachment.fileSize)}
                         </p>
@@ -599,14 +599,13 @@ export function BankTransactionDetailSheet({
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <a
-                          href={attachment.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium hover:underline truncate block"
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadFile(attachment.fileUrl, attachment.fileName)}
+                          className="text-sm font-medium hover:underline truncate block text-left"
                         >
                           {attachment.fileName}
-                        </a>
+                        </button>
                         <p className="text-xs text-muted-foreground">
                           {formatFileSize(attachment.fileSize)}
                         </p>
